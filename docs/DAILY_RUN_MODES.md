@@ -53,7 +53,11 @@ The shared patch copies it to `pokerogue-src/assets/daily-seeds.json`; upstream'
 JSON asset plugin emits it as `/daily-seeds.json` in the compiled game. When a
 fresh download is unavailable, the synchronizer validates and copies the
 checked-in snapshot instead. Android, iOS, Windows, AppImage, macOS, and Switch
-build entry points run the synchronizer before packaging.
+build entry points run the synchronizer before packaging. Android/iOS copy the
+compiled `dist/` tree into their Capacitor package, and all desktop builders
+include `dist/**/*`. Switch deliberately deploys it as the separate loose file
+`game/daily-seeds.json`; it is not stored inside an `.sspack` asset pack. Every
+platform workflow validates the final compiled archive before packaging.
 
 ## Seed algorithms
 
@@ -65,9 +69,12 @@ build entry points run the synchronizer before packaging.
   `SilverShadow-CustomSeed-v1|<trimmed exact text>`.
 - Each digest is truncated to its first 16 bytes and encoded as standard
   Base64. A dependency-free implementation is used on every runtime.
-- Custom Exact trims only outer whitespace, validates a 16-byte standard
-  Base64 canonical seed, and passes it to the ordinary seed path without
-  hashing or character changes.
+- Previous Seed lists the newest 1,000 canonical seeds launched from Text,
+  Offline, and Random modes. Rows include launch time and source details; using
+  a Previous Seed does not add another history entry.
+- Text Seed uses a controller-first naming-screen grid with lowercase,
+  uppercase, number, and symbol pages. It includes every printable ASCII
+  character, four-direction navigation, and no clipboard-only action.
 
 Official `daily-config` entries are expanded to
 `{ ...entry.dailyConfig, seed: entry.seed }`, serialized, validated by the
@@ -84,19 +91,22 @@ game's existing custom Daily parser, and passed to `trySetCustomDailyConfig`.
    the cached-source message includes its download time and newest date.
 5. Clear app data (or install the DEV identity fresh), stay offline, and verify
    the built-in-source message and actual newest embedded date.
-6. Use Left and Right throughout the date list. Confirm each jump equals the
-   number of dates visible between scroll indicators and no dates are skipped.
+6. Use Left and Right throughout the date list. Confirm each jump advances six
+   rows (one-row overlap in the approximately seven-row view) and clamps at the
+   list boundaries.
 7. Start Offline twice on the same UTC day in separate slots. Make identical
    choices and compare the initial rental team/encounters.
 8. Start Random twice and record the displayed canonical seeds; they must
    differ and remain unchanged while selecting a slot.
-9. Enter `k5exW8qrITeVWzIKS+3FFg==` as Exact Seed, including `+` and `=`, and
-   verify the displayed/saved seed is unchanged.
+9. Open Previous Seed and verify Offline, Random, and Text runs are newest
+   first with timestamps/source details. Select one and confirm it is not added
+   to the list again.
 10. Enter `ABCDEFG` twice as Text Seed and compare canonical seeds and initial
     results. Enter `ABCDEF` and verify it differs. Repeat with capitalization,
     spaces, apostrophes, and punctuation.
-11. Operate the input screen using only the controller/touch-control buttons:
-    pages, character selection, Backspace, Clear, Confirm, and Cancel.
+11. Operate the naming-screen grid using only the controller/touch controls:
+    four-direction movement, pages, characters, Backspace, Clear, Confirm, and
+    Cancel. Check `+`, `/`, `=`, spaces, and punctuation on the symbol page.
 12. Resume one run from each mode. Verify its original official date,
     canonical seed, friendly text, and special configuration remain intact.
 13. In airplane mode, repeatedly enter/leave Official and verify there is no

@@ -1,6 +1,5 @@
 import {
   DAILY_ARCHIVE_STORAGE_KEYS,
-  getVisibleDatePageSize,
   loadOfficialDailyArchive,
   moveDateCursor,
   parseDailyArchive,
@@ -11,8 +10,19 @@ import {
   createCustomTextSeed,
   createOfflineDailySeed,
   getUtcDateKey,
-  normalizeAndValidateExactSeed,
 } from "#system/daily-run/daily-run-seed-utils";
+import {
+  DAILY_SEED_HISTORY_STORAGE_KEY,
+  MAX_DAILY_SEED_HISTORY_ENTRIES,
+  readDailySeedHistory,
+  recordDailySeedHistory,
+} from "#system/daily-run/daily-run-history";
+import {
+  buildDailySeedKeyboardRows,
+  DAILY_SEED_KEYBOARD_COLUMNS,
+  moveDailySeedKeyboardCursor,
+  nextDailySeedKeyboardPage,
+} from "#system/daily-run/daily-run-keyboard-model";
 import {
   clearDailyRunMetadata,
   commitPendingDailyRunLaunch,
@@ -163,12 +173,10 @@ describe("Daily Run date navigation", () => {
     expect(moveDateCursor(9, 1, 1, 10)).toBe(9);
   });
 
-  it("moves exactly one currently visible page without skipping boundary entries", () => {
-    expect(getVisibleDatePageSize(103, 8, 0)).toBe(7);
-    expect(moveDateCursor(0, 1, 7, 103)).toBe(7);
-    expect(getVisibleDatePageSize(103, 8, 2)).toBe(6);
+  it("moves six rows per page with one-row overlap and clamps at boundaries", () => {
+    expect(moveDateCursor(0, 1, 6, 103)).toBe(6);
     expect(moveDateCursor(7, 1, 6, 103)).toBe(13);
-    expect(moveDateCursor(100, 1, 7, 103)).toBe(102);
+    expect(moveDateCursor(100, 1, 6, 103)).toBe(102);
   });
 });
 
@@ -195,11 +203,58 @@ describe("Daily Run seed algorithms", () => {
     expect(createCustomTextSeed("  ABCDEFG  ")).toEqual(createCustomTextSeed("ABCDEFG"));
   });
 
-  it("preserves exact canonical seeds including case and + / =", () => {
-    const seed = "k5exW8qrITeVWzIKS+3F/g==";
-    expect(normalizeAndValidateExactSeed(`  ${seed}  `)).toBe(seed);
-    expect(() => normalizeAndValidateExactSeed(seed.toLowerCase())).not.toThrow();
-    expect(() => normalizeAndValidateExactSeed("friendly text")).toThrow();
+});
+
+describe("Daily Run Text Seed keyboard", () => {
+  it("uses a nine-column naming-screen grid with every printable ASCII character", () => {
+    expect(DAILY_SEED_KEYBOARD_COLUMNS).toBe(9);
+    const characters = ["lowercase", "uppercase", "numbers", "symbols"]
+      .flatMap(page => buildDailySeedKeyboardRows(page as "lowercase" | "uppercase" | "numbers" | "symbols"))
+      .flatMap(row => row)
+      .filter(key => key.kind === "character")
+      .map(key => key.value);
+    for (let code = 32; code <= 126; code++) {
+      expect(characters).toContain(String.fromCharCode(code));
+    }
+  });
+
+  it("supports four-direction cursor movement and page cycling", () => {
+    const rows = buildDailySeedKeyboardRows("lowercase");
+    expect(moveDailySeedKeyboardCursor(rows, { row: 0, column: 0 }, "right")).toEqual({ row: 0, column: 1 });
+    expect(moveDailySeedKeyboardCursor(rows, { row: 0, column: 0 }, "left")).toEqual({ row: 0, column: 8 });
+    expect(moveDailySeedKeyboardCursor(rows, { row: 0, column: 8 }, "down")).toEqual({ row: 1, column: 8 });
+    expect(nextDailySeedKeyboardPage("lowercase")).toBe("uppercase");
+    expect(nextDailySeedKeyboardPage("lowercase", -1)).toBe("symbols");
+  });
+});
+
+describe("Previous Seed history", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("stores only Text, Offline, and Random launches and does not re-add Previous Seed", () => {
+    const storage = installStorage();
+    recordDailySeedHistory({ mode: "official", canonicalSeed: "official" });
+    recordDailySeedHistory({ mode: "previous", canonicalSeed: "previous" });
+    recordDailySeedHistory({ mode: "random", canonicalSeed: "random" }, 100);
+    recordDailySeedHistory({ mode: "offline", canonicalSeed: "offline", selectedDate: "2026-08-05" }, 200);
+    recordDailySeedHistory({ mode: "custom-text", canonicalSeed: "text", friendlyTextSeed: "Monday" }, 300);
+    expect(JSON.parse(storage.get(DAILY_SEED_HISTORY_STORAGE_KEY) ?? "[]")).toHaveLength(3);
+    expect(readDailySeedHistory().map(entry => entry.canonicalSeed)).toEqual(["text", "offline", "random"]);
+  });
+
+  it("deduplicates reused generated seeds and caps newest-first history at 1,000", () => {
+    const stored = Array.from({ length: MAX_DAILY_SEED_HISTORY_ENTRIES + 5 }, (_, index) => ({
+      canonicalSeed: `seed-${index}`,
+      mode: "random",
+      usedAt: index + 1,
+      useCount: 1,
+    }));
+    installStorage({ [DAILY_SEED_HISTORY_STORAGE_KEY]: JSON.stringify(stored) });
+    expect(readDailySeedHistory()).toHaveLength(1000);
+    expect(readDailySeedHistory()[0].canonicalSeed).toBe("seed-1004");
+    recordDailySeedHistory({ mode: "random", canonicalSeed: "seed-1004" }, 2000);
+    expect(readDailySeedHistory()[0]).toMatchObject({ canonicalSeed: "seed-1004", useCount: 2 });
+    expect(readDailySeedHistory()).toHaveLength(1000);
   });
 });
 

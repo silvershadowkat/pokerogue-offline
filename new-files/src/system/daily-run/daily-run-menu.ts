@@ -2,6 +2,7 @@ import { globalScene } from "#app/global-scene";
 import { parseDailySeed } from "#data/daily-seed/daily-seed-utils";
 import { UiMode } from "#enums/ui-mode";
 import type { OptionSelectItem } from "#types/ui-types";
+import type { DailySeedKeyboardConfig } from "#ui/handlers/daily-seed-keyboard-ui-handler";
 import i18next from "i18next";
 import {
   loadOfficialDailyArchive,
@@ -9,14 +10,13 @@ import {
   type DailyArchiveEntry,
   type LoadedDailyArchive,
 } from "./daily-run-archive";
+import { readDailySeedHistory, type DailySeedHistoryEntry } from "./daily-run-history";
 import {
   createCustomTextSeed,
   createOfflineDailySeed,
   createRandomDailySeed,
   CUSTOM_TEXT_ALGORITHM_VERSION,
   getUtcDateKey,
-  isInvisibleControlCharacter,
-  normalizeAndValidateExactSeed,
   OFFLINE_DAILY_ALGORITHM_VERSION,
   RANDOM_DAILY_ALGORITHM_VERSION,
 } from "./daily-run-seed-utils";
@@ -27,36 +27,29 @@ export interface DailyRunMenuContext {
   cancel: () => void;
 }
 
-type KeyboardPage = "lowercase" | "uppercase" | "numbers" | "symbols";
-
-const MAX_VISIBLE_DATES = 8;
-const MAX_CUSTOM_TEXT_CHARACTERS = 128;
-const keyboardPages: Record<KeyboardPage, string[]> = {
-  lowercase: Array.from("abcdefghijklmnopqrstuvwxyz"),
-  uppercase: Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
-  numbers: Array.from("0123456789"),
-  symbols: ["+", "/", "=", "-", "_", ".", "'", " ", "!", "?", ":", "@", "#", "&", "(", ")"],
-};
-const keyboardPageOrder = Object.keys(keyboardPages) as KeyboardPage[];
+const MAX_VISIBLE_LIST_ROWS = 8;
+const LIST_PAGE_STEP = 6;
 
 function t(key: string, options?: Record<string, unknown>): string {
   return i18next.t(`menu:${key}`, options);
 }
 
-function showOptions(options: OptionSelectItem[], initialCursor = 0, maxOptions?: number): void {
+function showOptions(options: OptionSelectItem[], initialCursor = 0, largeList = false): void {
   globalScene.ui.refreshOverlayMode(UiMode.OPTION_SELECT, {
     options,
     initialCursor,
-    maxOptions,
-    measureVisibleOptionsOnly: maxOptions != null && options.length > maxOptions,
+    maxOptions: largeList ? MAX_VISIBLE_LIST_ROWS : undefined,
+    measureVisibleOptionsOnly: largeList,
+    pageStep: largeList ? LIST_PAGE_STEP : undefined,
     supportHover: true,
     wrapNavigation: false,
   });
 }
 
+/** Errors advance automatically instead of leaving input trapped in the previous option handler. */
 function showError(message: string, callback: () => void): void {
   console.warn("Daily Run menu error:", message);
-  globalScene.ui.showText(`${t("shadowDailyError")}\n${message}`, null, callback, null, true);
+  globalScene.ui.showText(`${t("shadowDailyError")}\n${message}`, null, callback);
 }
 
 function confirm(message: string, yes: () => void, no: () => void): void {
@@ -65,12 +58,18 @@ function confirm(message: string, yes: () => void, no: () => void): void {
   });
 }
 
+/** Show the generated seed and a live Yes/No overlay at the same time. */
+function confirmGeneratedSeed(seed: string, yes: () => void, no: () => void): void {
+  globalScene.ui.showText(t("shadowDailyGeneratedSeed", { seed }), 0);
+  globalScene.ui.setOverlayMode(UiMode.CONFIRM, yes, no);
+}
+
 function archiveEntryHelp(entry: DailyArchiveEntry, loaded: LoadedDailyArchive): string {
   return [
-    t("shadowDailySelectedDate", { date: entry.date }),
-    entry.format === "daily-config" ? t("shadowDailySpecialType") : t("shadowDailyStandardType"),
-    t("shadowDailySeedValue", { seed: entry.seed }),
-    t("shadowDailyArchiveSource", { source: t(`shadowDailySource${loaded.source}`) }),
+    `${entry.date} · ${entry.format === "daily-config" ? t("shadowDailySpecialType") : t("shadowDailyStandardType")}`,
+    `${t("shadowDailySeedValue", { seed: entry.seed })} · ${t("shadowDailyArchiveSource", {
+      source: t(`shadowDailySource${loaded.source}`),
+    })}`,
   ].join("\n");
 }
 
@@ -123,30 +122,20 @@ function showOfficialDateList(context: DailyRunMenuContext, loaded: LoadedDailyA
   }));
   options.push({
     label: t("cancel"),
-    handler: () => {
-      showDailyRunTypeMenu(context);
-      return true;
-    },
+    handler: () => (showDailyRunTypeMenu(context), true),
     onHover: () => globalScene.ui.showText(t("shadowDailyCancelDateHelp"), 0),
   });
   globalScene.ui.showText(archiveEntryHelp(loaded.archive.entries[cursor], loaded), 0);
-  globalScene.ui.refreshOverlayMode(UiMode.OPTION_SELECT, {
-    options,
-    initialCursor: cursor,
-    maxOptions: MAX_VISIBLE_DATES,
-    measureVisibleOptionsOnly: true,
-    pageStep: 1,
-    pageStepVisibleOptions: true,
-    supportHover: true,
-    wrapNavigation: false,
-  });
+  showOptions(options, cursor, true);
 }
 
 function openOfficialArchive(context: DailyRunMenuContext): void {
   globalScene.ui.showText(t("shadowDailyLoadingArchive"), 0);
   void loadOfficialDailyArchive()
     .then(loaded => {
-      globalScene.ui.showText(loaded.notice, null, () => showOfficialDateList(context, loaded), null, true);
+      // This is deliberately not a prompt. The old prompt left input routed to
+      // a cleared OPTION_SELECT handler and softlocked before the date list.
+      globalScene.ui.showText(loaded.notice, null, () => showOfficialDateList(context, loaded));
     })
     .catch(error => {
       showError(error instanceof Error ? error.message : t("shadowDailyUnknownError"), () =>
@@ -156,8 +145,6 @@ function openOfficialArchive(context: DailyRunMenuContext): void {
 }
 
 function openOfflineRun(context: DailyRunMenuContext): void {
-  // Capture one instant so a confirmation spanning UTC midnight cannot label
-  // one date while launching the seed for another.
   const selectedInstant = new Date();
   const date = getUtcDateKey(selectedInstant);
   confirm(
@@ -184,174 +171,125 @@ function openRandomRun(context: DailyRunMenuContext): void {
     t("shadowDailyRandomConfirm"),
     () => {
       const canonicalSeed = createRandomDailySeed();
-      globalScene.ui.showText(
-        t("shadowDailyGeneratedSeed", { seed: canonicalSeed }),
-        null,
-        () =>
-          context.launch({
-            seedOrConfig: canonicalSeed,
-            metadata: {
-              mode: "random",
-              canonicalSeed,
-              algorithmVersion: RANDOM_DAILY_ALGORITHM_VERSION,
-              specialDailyConfig: false,
-            },
-          }),
-        null,
-        true,
+      confirmGeneratedSeed(
+        canonicalSeed,
+        () => context.launch({
+          seedOrConfig: canonicalSeed,
+          metadata: {
+            mode: "random",
+            canonicalSeed,
+            algorithmVersion: RANDOM_DAILY_ALGORITHM_VERSION,
+            specialDailyConfig: false,
+          },
+        }),
+        () => showDailyRunTypeMenu(context),
       );
     },
     () => showDailyRunTypeMenu(context),
   );
 }
 
-function keyboardStatus(mode: "exact" | "text", value: string, page: KeyboardPage, error?: string): string {
-  const displayValue = value || t("shadowDailyKeyboardEmpty");
-  return [
-    t(mode === "exact" ? "shadowDailyExactSeed" : "shadowDailyTextSeed"),
-    t("shadowDailyKeyboardValue", { value: displayValue }),
-    t("shadowDailyKeyboardCount", { count: Array.from(value).length }),
-    t("shadowDailyKeyboardPage", { page: t(`shadowDailyKeyboardPage${page}`) }),
-    error ? t("shadowDailyKeyboardError", { error }) : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+function historyModeLabel(entry: DailySeedHistoryEntry): string {
+  return t(`shadowDailyHistoryMode${entry.mode}`);
 }
 
-function showSeedKeyboard(
-  mode: "exact" | "text",
-  context: DailyRunMenuContext,
-  back: () => void,
-  value = "",
-  page: KeyboardPage = "lowercase",
-  error?: string,
-): void {
-  const maxCharacters = mode === "text" ? MAX_CUSTOM_TEXT_CHARACTERS : 256;
-  const rerender = (nextValue = value, nextPage = page, nextError?: string) =>
-    showSeedKeyboard(mode, context, back, nextValue, nextPage, nextError);
-  const options: OptionSelectItem[] = keyboardPages[page].map(character => ({
-    label: character === " " ? t("shadowDailyKeyboardSpace") : character,
+function historyTimestamp(timestamp: number): string {
+  const date = new Date(timestamp);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function historyLabel(entry: DailySeedHistoryEntry): string {
+  const identity = entry.mode === "offline"
+    ? entry.selectedDate ?? "UTC"
+    : entry.mode === "custom-text"
+      ? `“${Array.from(entry.friendlyTextSeed ?? "").slice(0, 16).join("")}”`
+      : entry.canonicalSeed.slice(0, 8);
+  return `${historyTimestamp(entry.usedAt)}  ${historyModeLabel(entry)}  ${identity}`;
+}
+
+function historyHelp(entry: DailySeedHistoryEntry): string {
+  const detail = entry.mode === "offline"
+    ? t("shadowDailyPreviousOfflineDetail", { date: entry.selectedDate })
+    : entry.mode === "custom-text"
+      ? t("shadowDailyPreviousTextDetail", { text: entry.friendlyTextSeed })
+      : t("shadowDailyPreviousRandomDetail");
+  return `${detail}\n${t("shadowDailySeedValue", { seed: entry.canonicalSeed })}`;
+}
+
+function showPreviousSeedList(context: DailyRunMenuContext, cursor = 0): void {
+  const entries = readDailySeedHistory();
+  if (!entries.length) {
+    showError(t("shadowDailyPreviousEmpty"), () => showCustomRunMenu(context));
+    return;
+  }
+  const safeCursor = Math.min(cursor, entries.length - 1);
+  const options: OptionSelectItem[] = entries.map((entry, index) => ({
+    label: historyLabel(entry),
     handler: () => {
-      if (Array.from(value).length >= maxCharacters) {
-        rerender(value, page, t("shadowDailyKeyboardTooLong", { max: maxCharacters }));
-      } else {
-        rerender(value + character, page);
-      }
+      context.launch({
+        seedOrConfig: entry.canonicalSeed,
+        metadata: {
+          mode: "previous",
+          canonicalSeed: entry.canonicalSeed,
+          selectedDate: entry.selectedDate,
+          friendlyTextSeed: entry.friendlyTextSeed,
+          algorithmVersion: entry.algorithmVersion,
+          specialDailyConfig: false,
+        },
+      });
       return true;
     },
+    onHover: () => globalScene.ui.showText(historyHelp(entry), 0),
   }));
-  options.push(
-    {
-      label: t("shadowDailyKeyboardChangePage"),
-      handler: () => {
-        const nextPage = keyboardPageOrder[(keyboardPageOrder.indexOf(page) + 1) % keyboardPageOrder.length];
-        rerender(value, nextPage);
-        return true;
-      },
+  options.push({
+    label: t("cancel"),
+    handler: () => (showCustomRunMenu(context), true),
+    onHover: () => globalScene.ui.showText(t("shadowDailyPreviousDescription"), 0),
+  });
+  globalScene.ui.showText(historyHelp(entries[safeCursor]), 0);
+  showOptions(options, safeCursor, true);
+}
+
+function openTextSeedKeyboard(context: DailyRunMenuContext): void {
+  const config: DailySeedKeyboardConfig = {
+    onConfirm: value => {
+      const result = createCustomTextSeed(value);
+      confirmGeneratedSeed(
+        result.canonicalSeed,
+        () => context.launch({
+          seedOrConfig: result.canonicalSeed,
+          metadata: {
+            mode: "custom-text",
+            canonicalSeed: result.canonicalSeed,
+            friendlyTextSeed: result.friendlyText,
+            algorithmVersion: CUSTOM_TEXT_ALGORITHM_VERSION,
+            specialDailyConfig: false,
+          },
+        }),
+        () => showCustomRunMenu(context),
+      );
     },
-    {
-      label: t("shadowDailyKeyboardBackspace"),
-      handler: () => {
-        const characters = Array.from(value);
-        characters.pop();
-        rerender(characters.join(""));
-        return true;
-      },
-    },
-    { label: t("shadowDailyKeyboardClear"), handler: () => (rerender(""), true) },
-  );
-  if (typeof navigator !== "undefined" && navigator.clipboard?.readText) {
-    options.push({
-      label: t("shadowDailyKeyboardPaste"),
-      handler: () => {
-        void navigator.clipboard
-          .readText()
-          .then(pasted => {
-            if (isInvisibleControlCharacter(pasted)) {
-              rerender(value, page, t("shadowDailyKeyboardControlCharacters"));
-              return;
-            }
-            rerender(Array.from(pasted).slice(0, maxCharacters).join(""));
-          })
-          .catch(() => rerender(value, page, t("shadowDailyKeyboardPasteFailed")));
-        return true;
-      },
-    });
-  }
-  options.push(
-    {
-      label: t("shadowDailyKeyboardConfirm"),
-      handler: () => {
-        if (isInvisibleControlCharacter(value)) {
-          rerender(value, page, t("shadowDailyKeyboardControlCharacters"));
-          return true;
-        }
-        if (mode === "exact") {
-          try {
-            const canonicalSeed = normalizeAndValidateExactSeed(value);
-            context.launch({
-              seedOrConfig: canonicalSeed,
-              metadata: { mode: "custom-exact", canonicalSeed, specialDailyConfig: false },
-            });
-          } catch (validationError) {
-            rerender(
-              value,
-              page,
-              validationError instanceof Error ? validationError.message : t("shadowDailyInvalidExactSeed"),
-            );
-          }
-          return true;
-        }
-        try {
-          const result = createCustomTextSeed(value);
-          globalScene.ui.showText(
-            t("shadowDailyGeneratedSeed", { seed: result.canonicalSeed }),
-            null,
-            () =>
-              context.launch({
-                seedOrConfig: result.canonicalSeed,
-                metadata: {
-                  mode: "custom-text",
-                  canonicalSeed: result.canonicalSeed,
-                  friendlyTextSeed: result.friendlyText,
-                  algorithmVersion: CUSTOM_TEXT_ALGORITHM_VERSION,
-                  specialDailyConfig: false,
-                },
-              }),
-            null,
-            true,
-          );
-        } catch (validationError) {
-          rerender(
-            value,
-            page,
-            validationError instanceof Error ? validationError.message : t("shadowDailyEmptyTextSeed"),
-          );
-        }
-        return true;
-      },
-    },
-    { label: t("cancel"), handler: () => (back(), true) },
-  );
-  globalScene.ui.showText(keyboardStatus(mode, value, page, error), 0);
-  showOptions(options, 0, 10);
+    onCancel: () => showCustomRunMenu(context),
+  };
+  globalScene.ui.refreshOverlayMode(UiMode.DAILY_SEED_KEYBOARD, config);
 }
 
 function showCustomRunMenu(context: DailyRunMenuContext): void {
   const options: OptionSelectItem[] = [
     {
-      label: t("shadowDailyExactSeed"),
-      handler: () => (showSeedKeyboard("exact", context, () => showCustomRunMenu(context)), true),
-      onHover: () => globalScene.ui.showText(t("shadowDailyExactDescription"), 0),
+      label: t("shadowDailyPreviousSeed"),
+      handler: () => (showPreviousSeedList(context), true),
+      onHover: () => globalScene.ui.showText(t("shadowDailyPreviousDescription"), 0),
     },
     {
       label: t("shadowDailyTextSeed"),
-      handler: () => (showSeedKeyboard("text", context, () => showCustomRunMenu(context)), true),
+      handler: () => (openTextSeedKeyboard(context), true),
       onHover: () => globalScene.ui.showText(t("shadowDailyTextDescription"), 0),
     },
     { label: t("cancel"), handler: () => (showDailyRunTypeMenu(context), true) },
   ];
-  globalScene.ui.showText(t("shadowDailyExactDescription"), 0);
+  globalScene.ui.showText(t("shadowDailyPreviousDescription"), 0);
   showOptions(options);
 }
 

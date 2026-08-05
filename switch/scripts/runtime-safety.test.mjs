@@ -20,6 +20,8 @@ const liveSettingsPatch = readFileSync(
 const logger = readFileSync(new URL("../src/logger.ts", import.meta.url), "utf8");
 const domShim = readFileSync(new URL("../src/dom-shim.ts", import.meta.url), "utf8");
 const buildGame = readFileSync(new URL("./build-game.mjs", import.meta.url), "utf8");
+const packageRelease = readFileSync(new URL("./package-release.mjs", import.meta.url), "utf8");
+const verifyRelease = readFileSync(new URL("./verify-release.mjs", import.meta.url), "utf8");
 
 test("the Switch runtime keeps a bounded freeze flight recorder and dual watchdogs", () => {
   assert.match(diagnostics, /const FLIGHT_RECORDER_INTERVAL_MS = 10_000;/);
@@ -136,6 +138,15 @@ test("generated runtime patches are idempotent by their installed markers", () =
 
 test("the compiled game cache tracks the synchronized Daily archive", () => {
   assert.match(buildGame, /"work\/generated\/daily-seeds\.json"/);
+});
+
+test("the Switch package keeps the built-in Daily archive loose and verified", () => {
+  assert.match(packageRelease, /const dailyArchiveName = "daily-seeds\.json"/);
+  assert.match(packageRelease, /copyFile\(compiledDailyArchive, path\.join\(gameRoot, dailyArchiveName\)\)/);
+  assert.match(packageRelease, /validateDailyArchive\(await readFile\(compiledDailyArchive, "utf8"\)\)/);
+  assert.match(packageRelease, /`game\/\$\{dailyArchiveName\}`/);
+  assert.match(verifyRelease, /"game\/daily-seeds\.json"/);
+  assert.match(verifyRelease, /validateDailyArchive\(await readFile\(path\.join\(gameRoot, "daily-seeds\.json"\), "utf8"\)\)/);
 });
 
 test("Switch UI setup yields measured progress frames from 45 through 99 percent", () => {

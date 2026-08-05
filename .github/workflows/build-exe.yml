@@ -127,6 +127,9 @@ jobs:
         shell: bash
         run: bash scripts/apply-post-build-patches.sh exe
 
+      - name: Validate embedded Daily archive
+        run: node scripts/validate-embedded-daily-archive.mjs
+
       - name: Copy Electron config files into place
         shell: bash
         run: |

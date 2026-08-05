@@ -1,4 +1,12 @@
-export type DailyRunLaunchMode = "official" | "offline" | "random" | "custom-exact" | "custom-text";
+import { recordDailySeedHistory } from "./daily-run-history";
+
+export type DailyRunLaunchMode =
+  | "official"
+  | "offline"
+  | "random"
+  | "custom-exact"
+  | "custom-text"
+  | "previous";
 
 export type DailyRunArchiveSource = "downloaded" | "cached" | "built-in";
 
@@ -50,6 +58,9 @@ export function commitPendingDailyRunLaunch(): DailyRunLaunchRequest | undefined
   const request = getPendingDailyRunLaunch();
   if (request) {
     currentDailyRunMetadata = cloneMetadata(request.metadata);
+    // Record only after the player selected a save slot and the launch was
+    // committed. Official and Previous Seed launches are deliberately ignored.
+    recordDailySeedHistory(request.metadata);
   }
   pendingDailyRunLaunch = undefined;
   return request;

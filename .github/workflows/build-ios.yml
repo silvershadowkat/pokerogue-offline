@@ -154,6 +154,9 @@ jobs:
       - name: Apply post-build patches
         run: bash ${{ github.workspace }}/scripts/apply-post-build-patches.sh mobile
 
+      - name: Validate embedded Daily archive
+        run: node scripts/validate-embedded-daily-archive.mjs
+
       - name: Add iOS platform
         working-directory: pokerogue-src
         run: npx cap add ios

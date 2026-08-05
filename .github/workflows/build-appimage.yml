@@ -122,6 +122,9 @@ jobs:
       - name: Apply post-build patches
         run: bash ${{ github.workspace }}/scripts/apply-post-build-patches.sh appimage
 
+      - name: Validate embedded Daily archive
+        run: node scripts/validate-embedded-daily-archive.mjs
+
       - name: Copy Electron config files into place
         run: |
           cp ${{ github.workspace }}/configs/desktop/electron/main.cjs pokerogue-src/main.cjs

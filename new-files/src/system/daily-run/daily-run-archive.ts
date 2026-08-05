@@ -224,7 +224,7 @@ export async function loadOfficialDailyArchive(): Promise<LoadedDailyArchive> {
         archive,
         source: "downloaded",
         downloadedAt,
-        notice: `Downloaded the latest official seed archive. Latest available date: ${archive.latestDate}.`,
+        notice: `Archive updated. Latest date: ${archive.latestDate}.`,
       };
     } catch (error) {
       remoteError = error;
@@ -238,7 +238,7 @@ export async function loadOfficialDailyArchive(): Promise<LoadedDailyArchive> {
       archive: cached.archive,
       source: "cached",
       downloadedAt: cached.downloadedAt,
-      notice: `Could not download the latest official seed archive. Loading the cached archive downloaded on ${new Date(cached.downloadedAt).toLocaleString()}. Latest available date: ${cached.archive.latestDate}.`,
+      notice: `Download failed. Using cache from ${new Date(cached.downloadedAt).toISOString().slice(0, 10)}. Latest: ${cached.archive.latestDate}.`,
     };
   }
 
@@ -248,23 +248,13 @@ export async function loadOfficialDailyArchive(): Promise<LoadedDailyArchive> {
       archive,
       source: "built-in",
       notice: isSwitchRuntime()
-        ? `Network access is unavailable in this build. Loading the built-in official seed archive. Latest available date: ${archive.latestDate}.`
-        : `Could not download the latest official seed archive. Loading the built-in archive included with this build. Latest available date: ${archive.latestDate}.`,
+        ? `Offline build. Using built-in archive. Latest: ${archive.latestDate}.`
+        : `Download failed. Using built-in archive. Latest: ${archive.latestDate}.`,
     };
   } catch (embeddedError) {
     console.error("Failed to load every official Daily archive source.", { remoteError, embeddedError });
     throw new Error("No valid downloaded, cached, or built-in official Daily archive is available.");
   }
-}
-
-export function getVisibleDatePageSize(totalEntries: number, maxRows: number, scrollStart: number): number {
-  if (totalEntries <= maxRows) {
-    return totalEntries;
-  }
-  const hasUp = scrollStart > 0;
-  const provisional = maxRows - (hasUp ? 1 : 0);
-  const hasDown = scrollStart + provisional < totalEntries;
-  return Math.max(1, maxRows - (hasUp ? 1 : 0) - (hasDown ? 1 : 0));
 }
 
 export function moveDateCursor(current: number, direction: -1 | 1, visiblePageSize: number, count: number): number {

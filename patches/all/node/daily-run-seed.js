@@ -40,9 +40,17 @@ function copyShared(relativePath, targetPath = relativePath) {
   console.log(`Written: ${destinationPath}`);
 }
 
-for (const name of ["daily-run-types.ts", "daily-run-seed-utils.ts", "daily-run-archive.ts", "daily-run-menu.ts"]) {
+for (const name of [
+  "daily-run-types.ts",
+  "daily-run-seed-utils.ts",
+  "daily-run-archive.ts",
+  "daily-run-history.ts",
+  "daily-run-keyboard-model.ts",
+  "daily-run-menu.ts",
+]) {
   copyShared(path.join("src", "system", "daily-run", name));
 }
+copyShared(path.join("src", "ui", "handlers", "daily-seed-keyboard-ui-handler.ts"));
 copyShared(
   path.join("test", "tests", "system", "daily-run", "daily-run-system.test.ts"),
   path.join("test", "tests", "system", "daily-run", "daily-run-system.test.ts"),
@@ -60,6 +68,46 @@ const embeddedArchiveTarget = path.join(gameRoot, "assets", "daily-seeds.json");
 fs.mkdirSync(path.dirname(embeddedArchiveTarget), { recursive: true });
 fs.copyFileSync(selectedArchive, embeddedArchiveTarget);
 console.log(`Embedded Daily archive: ${embeddedArchiveTarget}`);
+
+const uiModePath = path.join(gameRoot, "src", "enums", "ui-mode.ts");
+let uiMode = read(uiModePath);
+if (!uiMode.includes("DAILY_SEED_KEYBOARD")) {
+  uiMode = replaceRequired(
+    uiMode,
+    "  AUTO_COMPLETE,",
+    `  DAILY_SEED_KEYBOARD,
+  AUTO_COMPLETE,`,
+    "Daily seed keyboard UI mode anchor",
+  );
+  write(uiModePath, uiMode);
+}
+
+const uiPath = path.join(gameRoot, "src", "ui", "ui.ts");
+let ui = read(uiPath);
+if (!ui.includes("DailySeedKeyboardUiHandler")) {
+  ui = replaceRequired(
+    ui,
+    'import { GameStatsUiHandler } from "#ui/game-stats-ui-handler";',
+    `import { GameStatsUiHandler } from "#ui/game-stats-ui-handler";
+import { DailySeedKeyboardUiHandler } from "#ui/handlers/daily-seed-keyboard-ui-handler";`,
+    "Daily seed keyboard handler import anchor",
+  );
+  ui = replaceRequired(
+    ui,
+    "  UiMode.AUTO_COMPLETE,",
+    `  UiMode.DAILY_SEED_KEYBOARD,
+  UiMode.AUTO_COMPLETE,`,
+    "Daily seed keyboard no-transition anchor",
+  );
+  ui = replaceRequired(
+    ui,
+    "      new AutoCompleteUiHandler(),",
+    `      new DailySeedKeyboardUiHandler(),
+      new AutoCompleteUiHandler(),`,
+    "Daily seed keyboard handler registration anchor",
+  );
+  write(uiPath, ui);
+}
 
 const titlePhasePath = path.join(gameRoot, "src", "phases", "title-phase.ts");
 let title = read(titlePhasePath);
@@ -254,7 +302,7 @@ ${loadSlotAnchor}`;
       if (!pendingLaunch) {
         console.error("Daily Run launch failed: pending seed/configuration was lost.");
         globalScene.ui.showText(i18next.t("menu:shadowDailyLaunchFailed"), null, () =>
-          this.showDailyRunTypeSelection(), null, true,
+          this.showDailyRunTypeSelection(),
         );
         return;
       }
@@ -289,7 +337,7 @@ ${loadSlotAnchor}`;
         console.error("Failed to launch Daily Run:", error);
         clearDailyRunMetadata();
         globalScene.ui.showText(i18next.t("menu:shadowDailyLaunchFailed"), null, () =>
-          this.showDailyRunTypeSelection(), null, true,
+          this.showDailyRunTypeSelection(),
         );
       }
 `
@@ -366,17 +414,17 @@ Object.assign(locale, {
   shadowDailyOffline: "Offline Daily Run",
   shadowDailyRandom: "Random 50-Wave Run",
   shadowDailyCustom: "Custom 50-Wave Run",
-  shadowDailyOfficialDescription: "Download the official Daily Run seed archive and choose any available date. If the latest archive cannot be downloaded, a cached or built-in copy will be used.",
-  shadowDailyOfflineDescription: "Play today's shared SilverShadow Daily Run without needing the internet. Everyone using the same version receives the same run for the same UTC date.",
+  shadowDailyOfficialDescription: "Download and browse official seed dates. Uses a cached or built-in archive if download fails.",
+  shadowDailyOfflineDescription: "Play today's shared offline run. The same game version and UTC date use the same seed.",
   shadowDailyRandomDescription: "Generate a new random 50-wave Daily Run. A different seed is created each time.",
-  shadowDailyCustomDescription: "Enter an exact seed or create a repeatable 50-wave run from your own text.",
-  shadowDailyExactSeed: "Exact Seed",
+  shadowDailyCustomDescription: "Reuse a previous seed or create a repeatable run from memorable text.",
+  shadowDailyPreviousSeed: "Previous Seed",
   shadowDailyTextSeed: "Text Seed",
-  shadowDailyExactDescription: "Enter an existing canonical seed exactly. Use this to replay an official, shared, or previously generated run.",
+  shadowDailyPreviousDescription: "Replay one of your last 1,000 Text, Offline, or Random seeds. Newest runs appear first.",
   shadowDailyTextDescription: "Enter any memorable text. The same text will always create the same 50-wave run.",
   shadowDailyOfflineConfirm: "Start Offline Daily Run for {{date}} (UTC)?",
   shadowDailyRandomConfirm: "Generate a new random 50-wave Daily Run?",
-  shadowDailyGeneratedSeed: "Generated canonical seed:\n{{seed}}\nSave this seed to replay the run later.",
+  shadowDailyGeneratedSeed: "Generated: {{seed}}\nStart this run?",
   shadowDailyLoadingArchive: "Loading the official Daily Run archive...",
   shadowDailySpecialIndicator: "[Special]",
   shadowDailySelectedDate: "Selected date: {{date}}",
@@ -391,27 +439,30 @@ Object.assign(locale, {
   shadowDailyError: "Daily Run error",
   shadowDailyUnknownError: "An unknown Daily Run error occurred.",
   shadowDailyInvalidSpecialConfig: "The special Daily Run configuration for {{date}} is invalid.",
-  shadowDailyInvalidExactSeed: "The exact canonical seed is invalid.",
   shadowDailyEmptyTextSeed: "Text Seed cannot be empty.",
+  shadowDailyPreviousEmpty: "No previous Text, Offline, or Random seeds have been used yet.",
+  shadowDailyPreviousOfflineDetail: "Offline Daily Run · UTC {{date}}",
+  shadowDailyPreviousTextDetail: "Text Seed · {{text}}",
+  shadowDailyPreviousRandomDetail: "Random 50-Wave Run",
+  shadowDailyHistoryModeoffline: "Offline",
+  shadowDailyHistoryModerandom: "Random",
+  "shadowDailyHistoryModecustom-text": "Text",
   shadowDailyLaunchFailed: "The Daily Run could not be started. No save was changed.",
   shadowDailyKeyboardEmpty: "(empty)",
-  shadowDailyKeyboardValue: "Value: {{value}}",
-  shadowDailyKeyboardCount: "Characters: {{count}}",
-  shadowDailyKeyboardPage: "Page: {{page}}",
-  shadowDailyKeyboardPagelowercase: "lowercase",
-  shadowDailyKeyboardPageuppercase: "uppercase",
-  shadowDailyKeyboardPagenumbers: "numbers",
-  shadowDailyKeyboardPagesymbols: "symbols",
-  shadowDailyKeyboardError: "Error: {{error}}",
-  shadowDailyKeyboardSpace: "[Space]",
-  shadowDailyKeyboardChangePage: "Change Page",
-  shadowDailyKeyboardBackspace: "Backspace",
-  shadowDailyKeyboardClear: "Clear",
-  shadowDailyKeyboardPaste: "Paste",
-  shadowDailyKeyboardConfirm: "Confirm",
+  shadowDailyKeyboardTitle: "TEXT SEED?",
+  shadowDailyKeyboardPagelowercase: "LOWER CASE",
+  shadowDailyKeyboardPageuppercase: "UPPER CASE",
+  shadowDailyKeyboardPagenumbers: "NUMBERS",
+  shadowDailyKeyboardPagesymbols: "SYMBOLS",
+  shadowDailyKeyboardGridHelp: "D-pad: Move · A: Select · B: Delete",
+  shadowDailyKeyboardSpaceShort: "SPC",
+  shadowDailyKeyboardBackspaceShort: "DEL",
+  shadowDailyKeyboardClearShort: "CLR",
+  shadowDailyKeyboardPageShort: "PAGE",
+  shadowDailyKeyboardConfirmShort: "OK",
+  shadowDailyKeyboardCancelShort: "BACK",
   shadowDailyKeyboardTooLong: "Input is limited to {{max}} characters.",
   shadowDailyKeyboardControlCharacters: "Control characters and newlines are not allowed.",
-  shadowDailyKeyboardPasteFailed: "Clipboard paste is unavailable.",
 });
 write(localePath, `${JSON.stringify(locale, null, 2)}\n`);
 

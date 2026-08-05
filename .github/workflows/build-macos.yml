@@ -110,6 +110,9 @@ jobs:
       - name: Apply post-build patches
         run: bash ${{ github.workspace }}/scripts/apply-post-build-patches.sh macos
 
+      - name: Validate embedded Daily archive
+        run: node scripts/validate-embedded-daily-archive.mjs
+
       - name: Convert app icon to ICNS
         run: |
           ICONSET="${{ github.workspace }}/appIcon.iconset"
