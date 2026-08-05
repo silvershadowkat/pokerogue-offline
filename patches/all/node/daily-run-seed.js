@@ -282,6 +282,7 @@ ${loadSlotAnchor}`;
     globalScene.ui.clearText();`,
     `  private startDailyRunWithSeed(request: DailyRunLaunchRequest): void {
     setPendingDailyRunLaunch(request);
+    globalScene.ui.resetModeChain();
     globalScene.ui.clearText();`,
     "Daily Run method signature",
   );
@@ -295,7 +296,8 @@ ${loadSlotAnchor}`;
       globalScene.phaseManager.clearPhaseQueue();`,
     `      if (slotId === -1) {
         clearPendingDailyRunLaunch();
-        this.showDailyRunTypeSelection();
+        globalScene.ui.resetModeChain();
+        void globalScene.ui.setMode(UiMode.MESSAGE).then(() => this.showDailyRunTypeSelection());
         return;
       }
       const pendingLaunch = getPendingDailyRunLaunch();
@@ -323,6 +325,24 @@ ${loadSlotAnchor}`;
 
         // Daily runs don't support all challenges yet`,
     "Daily Run custom configuration parser",
+  );
+  dailyMethod = replaceRequired(
+    dailyMethod,
+    `          globalScene.sessionPlayTime = 0;
+          globalScene.lastSavePlayTime = 0;
+          this.end();`,
+    `          globalScene.sessionPlayTime = 0;
+          globalScene.lastSavePlayTime = 0;
+          try {
+            const saved = await globalScene.gameData.saveAll(true, false);
+            if (!saved) {
+              console.warn("The new Daily Run could not be verified after its initial slot save.");
+            }
+          } catch (error) {
+            console.error("Failed to save the new Daily Run to its selected slot:", error);
+          }
+          this.end();`,
+    "initial Daily Run slot save",
   );
   const seedSelectionStart = dailyMethod.indexOf("      // If Online, calls seed fetch from db");
   const callbackEnd = dailyMethod.lastIndexOf("    });\n  }");
@@ -428,8 +448,8 @@ Object.assign(locale, {
   shadowDailyLoadingArchive: "Loading the official Daily Run archive...",
   shadowDailySpecialIndicator: "[Special]",
   shadowDailySelectedDate: "Selected date: {{date}}",
-  shadowDailySpecialType: "Special Daily Run configuration",
-  shadowDailyStandardType: "Standard Daily Run seed",
+  shadowDailySpecialType: "Special Daily Run",
+  shadowDailyStandardType: "Standard Daily Run",
   shadowDailySeedValue: "Seed: {{seed}}",
   shadowDailyArchiveSource: "Archive source: {{source}}",
   "shadowDailySourcedownloaded": "downloaded",
@@ -452,8 +472,7 @@ Object.assign(locale, {
   shadowDailyKeyboardTitle: "TEXT SEED?",
   shadowDailyKeyboardPagelowercase: "LOWER CASE",
   shadowDailyKeyboardPageuppercase: "UPPER CASE",
-  shadowDailyKeyboardPagenumbers: "NUMBERS",
-  shadowDailyKeyboardPagesymbols: "SYMBOLS",
+  shadowDailyKeyboardPagenumbersSymbols: "NUMBERS / SYMBOLS",
   shadowDailyKeyboardGridHelp: "D-pad: Move · A: Select · B: Delete",
   shadowDailyKeyboardSpaceShort: "SPC",
   shadowDailyKeyboardBackspaceShort: "DEL",

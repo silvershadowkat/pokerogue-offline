@@ -18,6 +18,7 @@ import {
   recordDailySeedHistory,
 } from "#system/daily-run/daily-run-history";
 import {
+  DAILY_SEED_KEYBOARD_ACTION_ROW,
   buildDailySeedKeyboardRows,
   DAILY_SEED_KEYBOARD_COLUMNS,
   moveDailySeedKeyboardCursor,
@@ -206,25 +207,38 @@ describe("Daily Run seed algorithms", () => {
 });
 
 describe("Daily Run Text Seed keyboard", () => {
-  it("uses a nine-column naming-screen grid with every printable ASCII character", () => {
+  it("uses a nine-column naming-screen grid with three pages and only canonical-seed symbols", () => {
     expect(DAILY_SEED_KEYBOARD_COLUMNS).toBe(9);
-    const characters = ["lowercase", "uppercase", "numbers", "symbols"]
-      .flatMap(page => buildDailySeedKeyboardRows(page as "lowercase" | "uppercase" | "numbers" | "symbols"))
+    const characters = ["lowercase", "uppercase", "numbersSymbols"]
+      .flatMap(page => buildDailySeedKeyboardRows(page as "lowercase" | "uppercase" | "numbersSymbols"))
       .flatMap(row => row)
       .filter(key => key.kind === "character")
       .map(key => key.value);
-    for (let code = 32; code <= 126; code++) {
-      expect(characters).toContain(String.fromCharCode(code));
+    expect(characters.join("")).toBe("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=");
+  });
+
+  it("keeps PAGE, DEL, CLR, BACK, and OK in a fixed bottom row", () => {
+    for (const page of ["lowercase", "uppercase", "numbersSymbols"] as const) {
+      const rows = buildDailySeedKeyboardRows(page);
+      expect(rows).toHaveLength(DAILY_SEED_KEYBOARD_ACTION_ROW + 1);
+      expect(rows[DAILY_SEED_KEYBOARD_ACTION_ROW].map(key => key.kind === "action" ? key.action : null)).toEqual([
+        "page", null, "backspace", null, "clear", null, "cancel", null, "confirm",
+      ]);
     }
   });
 
-  it("supports four-direction cursor movement and page cycling", () => {
+  it("supports four-direction cursor movement, skips spacers, and cycles three pages", () => {
     const rows = buildDailySeedKeyboardRows("lowercase");
     expect(moveDailySeedKeyboardCursor(rows, { row: 0, column: 0 }, "right")).toEqual({ row: 0, column: 1 });
     expect(moveDailySeedKeyboardCursor(rows, { row: 0, column: 0 }, "left")).toEqual({ row: 0, column: 8 });
     expect(moveDailySeedKeyboardCursor(rows, { row: 0, column: 8 }, "down")).toEqual({ row: 1, column: 8 });
+    expect(moveDailySeedKeyboardCursor(rows, { row: 2, column: 7 }, "right")).toEqual({ row: 2, column: 0 });
+    expect(moveDailySeedKeyboardCursor(rows, { row: DAILY_SEED_KEYBOARD_ACTION_ROW, column: 0 }, "left")).toEqual({
+      row: DAILY_SEED_KEYBOARD_ACTION_ROW,
+      column: 8,
+    });
     expect(nextDailySeedKeyboardPage("lowercase")).toBe("uppercase");
-    expect(nextDailySeedKeyboardPage("lowercase", -1)).toBe("symbols");
+    expect(nextDailySeedKeyboardPage("lowercase", -1)).toBe("numbersSymbols");
   });
 });
 

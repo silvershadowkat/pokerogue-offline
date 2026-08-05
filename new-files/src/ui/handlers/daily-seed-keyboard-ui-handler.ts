@@ -3,6 +3,7 @@ import { Button } from "#enums/buttons";
 import { TextStyle } from "#enums/text-style";
 import { UiMode } from "#enums/ui-mode";
 import {
+  DAILY_SEED_KEYBOARD_ACTION_ROW,
   buildDailySeedKeyboardRows,
   moveDailySeedKeyboardCursor,
   nextDailySeedKeyboardPage,
@@ -151,6 +152,9 @@ export class DailySeedKeyboardUiHandler extends UiHandler {
     this.position.column = Math.min(this.position.column, this.rows[this.position.row].length - 1);
     this.rows.forEach((row, rowIndex) => {
       row.forEach((key, columnIndex) => {
+        if (key.kind === "spacer") {
+          return;
+        }
         const x = columnIndex * GRID_COLUMN_WIDTH;
         const y = rowIndex * GRID_ROW_HEIGHT;
         const keyText = addTextObject(x, y, this.keyLabel(key), TextStyle.WINDOW).setOrigin(0.5, 0);
@@ -180,6 +184,9 @@ export class DailySeedKeyboardUiHandler extends UiHandler {
     if (key.kind === "character") {
       return key.value === " " ? i18next.t("menu:shadowDailyKeyboardSpaceShort") : key.value;
     }
+    if (key.kind === "spacer") {
+      return "";
+    }
     const labels: Record<DailySeedKeyboardAction, string> = {
       backspace: "shadowDailyKeyboardBackspaceShort",
       clear: "shadowDailyKeyboardClearShort",
@@ -200,6 +207,9 @@ export class DailySeedKeyboardUiHandler extends UiHandler {
   private activateSelectedKey(): boolean {
     const key = this.rows[this.position.row]?.[this.position.column];
     if (!key) {
+      return false;
+    }
+    if (key.kind === "spacer") {
       return false;
     }
     if (key.kind === "character") {
@@ -227,7 +237,7 @@ export class DailySeedKeyboardUiHandler extends UiHandler {
       case "confirm":
         return this.confirmValue();
       case "cancel":
-        this.config?.onCancel();
+        this.backspace();
         return true;
     }
   }
@@ -242,7 +252,7 @@ export class DailySeedKeyboardUiHandler extends UiHandler {
 
   private changePage(direction: -1 | 1): void {
     this.page = nextDailySeedKeyboardPage(this.page, direction);
-    this.position = { row: 0, column: 0 };
+    this.position = { row: DAILY_SEED_KEYBOARD_ACTION_ROW, column: 0 };
     this.renderGrid();
   }
 

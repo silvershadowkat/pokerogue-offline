@@ -27,49 +27,78 @@ export interface DailyRunMenuContext {
   cancel: () => void;
 }
 
-const MAX_VISIBLE_LIST_ROWS = 8;
-const LIST_PAGE_STEP = 6;
+const OFFICIAL_VISIBLE_LIST_ROWS = 6;
+const OFFICIAL_LIST_PAGE_STEP = 4;
+const HISTORY_VISIBLE_LIST_ROWS = 8;
+const HISTORY_LIST_PAGE_STEP = 6;
 
 function t(key: string, options?: Record<string, unknown>): string {
   return i18next.t(`menu:${key}`, options);
 }
 
-function showOptions(options: OptionSelectItem[], initialCursor = 0, largeList = false): void {
-  globalScene.ui.refreshOverlayMode(UiMode.OPTION_SELECT, {
-    options,
-    initialCursor,
-    maxOptions: largeList ? MAX_VISIBLE_LIST_ROWS : undefined,
-    measureVisibleOptionsOnly: largeList,
-    pageStep: largeList ? LIST_PAGE_STEP : undefined,
-    supportHover: true,
-    wrapNavigation: false,
+/** Remove every previous overlay before presenting the next Daily Run screen. */
+function inCleanMessageMode(callback: () => void): void {
+  globalScene.ui.resetModeChain();
+  if (globalScene.ui.getMode() === UiMode.MESSAGE) {
+    const handler = globalScene.ui.getHandler();
+    handler.clear();
+    handler.show([]);
+    globalScene.ui.clearText();
+    callback();
+    return;
+  }
+  void globalScene.ui.setMode(UiMode.MESSAGE).then(() => {
+    globalScene.ui.clearText();
+    callback();
   });
 }
 
-/** Errors advance automatically instead of leaving input trapped in the previous option handler. */
+function showOptions(
+  options: OptionSelectItem[],
+  help: string,
+  initialCursor = 0,
+  maxOptions?: number,
+  pageStep?: number,
+): void {
+  inCleanMessageMode(() => {
+    globalScene.ui.showText(help, 0);
+    void globalScene.ui.setOverlayMode(UiMode.OPTION_SELECT, {
+      options,
+      initialCursor,
+      maxOptions,
+      measureVisibleOptionsOnly: maxOptions != null,
+      pageStep,
+      supportHover: true,
+      wrapNavigation: false,
+    });
+  });
+}
+
+function showAcknowledgement(message: string, callback: () => void): void {
+  inCleanMessageMode(() => globalScene.ui.showText(message, null, callback, null, true));
+}
+
 function showError(message: string, callback: () => void): void {
   console.warn("Daily Run menu error:", message);
-  globalScene.ui.showText(`${t("shadowDailyError")}\n${message}`, null, callback);
+  showAcknowledgement(`${t("shadowDailyError")}\n${message}`, callback);
 }
 
 function confirm(message: string, yes: () => void, no: () => void): void {
-  globalScene.ui.showText(message, null, () => {
-    globalScene.ui.setOverlayMode(UiMode.CONFIRM, yes, no);
+  inCleanMessageMode(() => {
+    globalScene.ui.showText(message, null, () => {
+      void globalScene.ui.setOverlayMode(UiMode.CONFIRM, yes, no);
+    });
   });
 }
 
-/** Show the generated seed and a live Yes/No overlay at the same time. */
 function confirmGeneratedSeed(seed: string, yes: () => void, no: () => void): void {
-  globalScene.ui.showText(t("shadowDailyGeneratedSeed", { seed }), 0);
-  globalScene.ui.setOverlayMode(UiMode.CONFIRM, yes, no);
+  confirm(t("shadowDailyGeneratedSeed", { seed }), yes, no);
 }
 
-function archiveEntryHelp(entry: DailyArchiveEntry, loaded: LoadedDailyArchive): string {
+function archiveEntryHelp(entry: DailyArchiveEntry): string {
   return [
-    `${entry.date} · ${entry.format === "daily-config" ? t("shadowDailySpecialType") : t("shadowDailyStandardType")}`,
-    `${t("shadowDailySeedValue", { seed: entry.seed })} · ${t("shadowDailyArchiveSource", {
-      source: t(`shadowDailySource${loaded.source}`),
-    })}`,
+    `${entry.date} - ${entry.format === "daily-config" ? t("shadowDailySpecialType") : t("shadowDailyStandardType")}`,
+    t("shadowDailySeedValue", { seed: entry.seed }),
   ].join("\n");
 }
 
@@ -118,24 +147,27 @@ function showOfficialDateList(context: DailyRunMenuContext, loaded: LoadedDailyA
       }
       return true;
     },
-    onHover: () => globalScene.ui.showText(archiveEntryHelp(entry, loaded), 0),
+    onHover: () => globalScene.ui.showText(archiveEntryHelp(entry), 0),
   }));
   options.push({
     label: t("cancel"),
     handler: () => (showDailyRunTypeMenu(context), true),
     onHover: () => globalScene.ui.showText(t("shadowDailyCancelDateHelp"), 0),
   });
-  globalScene.ui.showText(archiveEntryHelp(loaded.archive.entries[cursor], loaded), 0);
-  showOptions(options, cursor, true);
+  showOptions(
+    options,
+    archiveEntryHelp(loaded.archive.entries[cursor]),
+    cursor,
+    OFFICIAL_VISIBLE_LIST_ROWS,
+    OFFICIAL_LIST_PAGE_STEP,
+  );
 }
 
 function openOfficialArchive(context: DailyRunMenuContext): void {
-  globalScene.ui.showText(t("shadowDailyLoadingArchive"), 0);
+  inCleanMessageMode(() => globalScene.ui.showText(t("shadowDailyLoadingArchive"), 0));
   void loadOfficialDailyArchive()
     .then(loaded => {
-      // This is deliberately not a prompt. The old prompt left input routed to
-      // a cleared OPTION_SELECT handler and softlocked before the date list.
-      globalScene.ui.showText(loaded.notice, null, () => showOfficialDateList(context, loaded));
+      showAcknowledgement(loaded.notice, () => showOfficialDateList(context, loaded));
     })
     .catch(error => {
       showError(error instanceof Error ? error.message : t("shadowDailyUnknownError"), () =>
@@ -247,8 +279,13 @@ function showPreviousSeedList(context: DailyRunMenuContext, cursor = 0): void {
     handler: () => (showCustomRunMenu(context), true),
     onHover: () => globalScene.ui.showText(t("shadowDailyPreviousDescription"), 0),
   });
-  globalScene.ui.showText(historyHelp(entries[safeCursor]), 0);
-  showOptions(options, safeCursor, true);
+  showOptions(
+    options,
+    historyHelp(entries[safeCursor]),
+    safeCursor,
+    HISTORY_VISIBLE_LIST_ROWS,
+    HISTORY_LIST_PAGE_STEP,
+  );
 }
 
 function openTextSeedKeyboard(context: DailyRunMenuContext): void {
@@ -272,7 +309,9 @@ function openTextSeedKeyboard(context: DailyRunMenuContext): void {
     },
     onCancel: () => showCustomRunMenu(context),
   };
-  globalScene.ui.refreshOverlayMode(UiMode.DAILY_SEED_KEYBOARD, config);
+  inCleanMessageMode(() => {
+    void globalScene.ui.setOverlayMode(UiMode.DAILY_SEED_KEYBOARD, config);
+  });
 }
 
 function showCustomRunMenu(context: DailyRunMenuContext): void {
@@ -289,8 +328,7 @@ function showCustomRunMenu(context: DailyRunMenuContext): void {
     },
     { label: t("cancel"), handler: () => (showDailyRunTypeMenu(context), true) },
   ];
-  globalScene.ui.showText(t("shadowDailyPreviousDescription"), 0);
-  showOptions(options);
+  showOptions(options, t("shadowDailyPreviousDescription"));
 }
 
 export function showDailyRunTypeMenu(context: DailyRunMenuContext): void {
@@ -315,8 +353,7 @@ export function showDailyRunTypeMenu(context: DailyRunMenuContext): void {
       handler: () => (showCustomRunMenu(context), true),
       onHover: () => globalScene.ui.showText(t("shadowDailyCustomDescription"), 0),
     },
-    { label: t("cancel"), handler: () => (context.cancel(), true) },
+    { label: t("cancel"), handler: () => (inCleanMessageMode(context.cancel), true) },
   ];
-  globalScene.ui.showText(t("shadowDailyOfficialDescription"), 0);
-  showOptions(options);
+  showOptions(options, t("shadowDailyOfficialDescription"));
 }
