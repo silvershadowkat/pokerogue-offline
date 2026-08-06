@@ -29,8 +29,8 @@ export interface DailyRunMenuContext {
 
 const OFFICIAL_VISIBLE_LIST_ROWS = 6;
 const OFFICIAL_LIST_PAGE_STEP = 4;
-const HISTORY_VISIBLE_LIST_ROWS = 8;
-const HISTORY_LIST_PAGE_STEP = 6;
+const HISTORY_VISIBLE_LIST_ROWS = 6;
+const HISTORY_LIST_PAGE_STEP = 4;
 
 function t(key: string, options?: Record<string, unknown>): string {
   return i18next.t(`menu:${key}`, options);
