@@ -13,7 +13,12 @@ import { SpeciesFormKey } from "#enums/species-form-key";
 import { SpeciesId } from "#enums/species-id";
 import { VariantTier } from "#enums/variant-tier";
 import { AttackTypeBoosterModifier, PersistentModifier } from "#modifiers/modifier";
-import { getModifierTypeFuncById, ModifierType, regenerateModifierPoolThresholds } from "#modifiers/modifier-type";
+import {
+  getModifierTypeFuncById,
+  ModifierType,
+  ModifierTypeOption,
+  regenerateModifierPoolThresholds,
+} from "#modifiers/modifier-type";
 import { CommandPhase } from "#phases/command-phase";
 import { SelectModifierPhase } from "#phases/select-modifier-phase";
 import {
@@ -345,6 +350,39 @@ describe("Boss Rush generation", () => {
     const phase = new SelectModifierPhase(0, undefined, undefined, false, [], cachedShop);
     const copy = phase.copy() as unknown as { shopOptions: unknown };
     expect(copy.shopOptions).toBe(cachedShop);
+  });
+
+  it("retains the exact cached free rewards across copied TM-cancel phases", () => {
+    restoreDailyRunMetadata({
+      mode: "boss-rush",
+      canonicalSeed: canonicalSeedFromText("boss-rush-tm-cancel-rewards"),
+      bossRushVariant: BossRushVariant.HARD,
+    });
+    try {
+      const item = getModifierTypeFuncById("RARE_CANDY")();
+      item.id = "RARE_CANDY";
+      const cachedRewards = [new ModifierTypeOption(item, 0)];
+      const copiedPhase = new SelectModifierPhase(
+        0,
+        undefined,
+        {
+          guaranteedModifierTypeOptions: cachedRewards,
+          fillRemaining: false,
+          allowLuckUpgrades: false,
+        },
+        true,
+      );
+      const replayedRewards = (
+        copiedPhase as unknown as {
+          getModifierTypeOptions: (modifierCount: number) => ModifierTypeOption[];
+        }
+      ).getModifierTypeOptions(cachedRewards.length);
+
+      expect(replayedRewards).toEqual(cachedRewards);
+      expect(replayedRewards[0]).toBe(cachedRewards[0]);
+    } finally {
+      clearDailyRunMetadata();
+    }
   });
 
   it("lets the Egg engine normalize unsupported Vanillite tiers without skipping its unlock", () => {

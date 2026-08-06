@@ -550,7 +550,7 @@ import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/of
     `  getModifierTypeOptions(modifierCount: number): ModifierTypeOption[] {
     return getPlayerModifierTypeOptions(`,
     `  getModifierTypeOptions(modifierCount: number): ModifierTypeOption[] {
-    if (isBossRushMode()) {
+    if (isBossRushMode() && !this.isCopy) {
       return getBossRushRewardOptions(globalScene.getPlayerParty());
     }
     return getPlayerModifierTypeOptions(`,

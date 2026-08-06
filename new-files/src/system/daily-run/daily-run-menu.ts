@@ -233,7 +233,10 @@ function openOfflineDate(context: DailyRunMenuContext, year: number, month: numb
 }
 
 const OFFLINE_DATE_VISIBLE_ROWS = 7;
-const OFFLINE_YEAR_PAGE_STEP = 10;
+// A scrolled option window reserves its first and last rows for the paging
+// arrows. Move by the number of real choices that remain visible so adjacent
+// pages overlap neither a year nor a date.
+const OFFLINE_DATE_PAGE_STEP = Math.max(1, OFFLINE_DATE_VISIBLE_ROWS - 2);
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function showOfflineYearMenu(context: DailyRunMenuContext): void {
@@ -247,7 +250,7 @@ function showOfflineYearMenu(context: DailyRunMenuContext): void {
     onHover: () => globalScene.ui.showText(t("shadowDailyOfflineYearHelp"), 0),
   }));
   options.push(cancelOption(() => showOfflineRunMenu(context)));
-  showOptions(options, t("shadowDailyOfflineYearHelp"), 0, OFFLINE_DATE_VISIBLE_ROWS, OFFLINE_YEAR_PAGE_STEP);
+  showOptions(options, t("shadowDailyOfflineYearHelp"), 0, OFFLINE_DATE_VISIBLE_ROWS, OFFLINE_DATE_PAGE_STEP);
 }
 
 function showOfflineMonthMenu(context: DailyRunMenuContext, year: number): void {
@@ -260,7 +263,7 @@ function showOfflineMonthMenu(context: DailyRunMenuContext, year: number): void 
     onHover: () => globalScene.ui.showText(t("shadowDailyOfflineMonthHelp"), 0),
   }));
   options.push(cancelOption(() => showOfflineYearMenu(context)));
-  showOptions(options, t("shadowDailyOfflineMonthHelp"), 0, OFFLINE_DATE_VISIBLE_ROWS, 6);
+  showOptions(options, t("shadowDailyOfflineMonthHelp"), 0, OFFLINE_DATE_VISIBLE_ROWS, OFFLINE_DATE_PAGE_STEP);
 }
 
 function showOfflineDayMenu(context: DailyRunMenuContext, year: number, month: number): void {
@@ -273,7 +276,7 @@ function showOfflineDayMenu(context: DailyRunMenuContext, year: number, month: n
     onHover: () => globalScene.ui.showText(t("shadowDailyOfflineDayHelp"), 0),
   }));
   options.push(cancelOption(() => showOfflineMonthMenu(context, year)));
-  showOptions(options, t("shadowDailyOfflineDayHelp"), 0, OFFLINE_DATE_VISIBLE_ROWS, 7);
+  showOptions(options, t("shadowDailyOfflineDayHelp"), 0, OFFLINE_DATE_VISIBLE_ROWS, OFFLINE_DATE_PAGE_STEP);
 }
 
 export function showOfflineRunMenu(context: DailyRunMenuContext): void {
