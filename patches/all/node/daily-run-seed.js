@@ -427,6 +427,52 @@ import {
   write(gameDataPath, gameData);
 }
 
+const saveSlotPath = path.join(gameRoot, "src", "ui", "handlers", "save-slot-select-ui-handler.ts");
+let saveSlot = read(saveSlotPath);
+if (!saveSlot.includes("getDailyRunSaveLabels")) {
+  saveSlot = replaceRequired(
+    saveSlot,
+    'import type { PokemonData } from "#system/pokemon-data";',
+    'import { getDailyRunSaveLabels } from "#system/daily-run/daily-run-types";\nimport type { PokemonData } from "#system/pokemon-data";',
+    "save-slot Daily Run label import",
+  );
+  saveSlot = replaceRequired(
+    saveSlot,
+    `    let fallbackName = \`\${GameMode.getModeName(data.gameMode)}\`;`,
+    `    const dailyLabels = getDailyRunSaveLabels(data.dailyRunMetadata);
+    let fallbackName = data.gameMode === GameModes.DAILY
+      ? dailyLabels.short
+      : \`\${GameMode.getModeName(data.gameMode)}\`;`,
+    "save-slot fallback mode name",
+  );
+  saveSlot = replaceRequired(
+    saveSlot,
+    `    const hasName = data?.name;
+    this.remove(this.loadingLabel, true);`,
+    `    const legacyDailyName =
+      data.gameMode === GameModes.DAILY && data.name?.startsWith("Daily Run (");
+    const hasName = data?.name && !legacyDailyName;
+    this.remove(this.loadingLabel, true);`,
+    "legacy Daily Run automatic name migration",
+  );
+  saveSlot = replaceRequired(
+    saveSlot,
+    `    const gameModeLabel = addTextObject(
+      8,
+      19,
+      \`\${GameMode.getModeName(data.gameMode) || i18next.t("gameMode:unknown")} - \${i18next.t("saveSlotSelectUiHandler:wave")} \${data.waveIndex}\`,`,
+    `    const displayedModeName = data.gameMode === GameModes.DAILY
+      ? getDailyRunSaveLabels(data.dailyRunMetadata).long
+      : GameMode.getModeName(data.gameMode) || i18next.t("gameMode:unknown");
+    const gameModeLabel = addTextObject(
+      8,
+      19,
+      \`\${displayedModeName} - \${i18next.t("saveSlotSelectUiHandler:wave")} \${data.waveIndex}\`,`,
+    "save-slot detailed Daily Run mode name",
+  );
+  write(saveSlotPath, saveSlot);
+}
+
 const localePath = path.join(gameRoot, "locales", "en", "menu.json");
 const locale = JSON.parse(read(localePath));
 Object.assign(locale, {
@@ -440,7 +486,7 @@ Object.assign(locale, {
   shadowDailyCustomDescription: "Reuse a previous seed or create a repeatable run from memorable text.",
   shadowDailyPreviousSeed: "Previous Seed",
   shadowDailyTextSeed: "Text Seed",
-  shadowDailyPreviousDescription: "Replay one of your last 1,000 Text, Offline, or Random seeds. Newest runs appear first.",
+  shadowDailyPreviousDescription: "Replay one of your last 1,000 Daily Run seeds. Newest runs appear first.",
   shadowDailyTextDescription: "Enter any memorable text. The same text will always create the same 50-wave run.",
   shadowDailyOfflineConfirm: "Start Offline Daily Run for {{date}} (UTC)?",
   shadowDailyRandomConfirm: "Generate a new random 50-wave Daily Run?",
@@ -460,11 +506,13 @@ Object.assign(locale, {
   shadowDailyUnknownError: "An unknown Daily Run error occurred.",
   shadowDailyInvalidSpecialConfig: "The special Daily Run configuration for {{date}} is invalid.",
   shadowDailyEmptyTextSeed: "Text Seed cannot be empty.",
-  shadowDailyPreviousEmpty: "No previous Text, Offline, or Random seeds have been used yet.",
+  shadowDailyPreviousEmpty: "No previous Daily Run seeds have been used yet.",
+  shadowDailyPreviousOfficialDetail: "Official Daily Run · {{date}}",
   shadowDailyPreviousOfflineDetail: "Offline Daily Run · UTC {{date}}",
   shadowDailyPreviousTextDetail: "Text Seed · {{text}}",
   shadowDailyPreviousRandomDetail: "Random 50-Wave Run",
   shadowDailyHistoryModeoffline: "Offline",
+  shadowDailyHistoryModeofficial: "Official",
   shadowDailyHistoryModerandom: "Random",
   "shadowDailyHistoryModecustom-text": "Text",
   shadowDailyLaunchFailed: "The Daily Run could not be started. No save was changed.",
@@ -477,9 +525,10 @@ Object.assign(locale, {
   shadowDailyKeyboardSpaceShort: "SPC",
   shadowDailyKeyboardBackspaceShort: "DEL",
   shadowDailyKeyboardClearShort: "CLR",
-  shadowDailyKeyboardPageShort: "PAGE",
+  shadowDailyKeyboardNextUpper: "UPPER",
+  shadowDailyKeyboardNextNumbers: "NUM",
+  shadowDailyKeyboardNextLower: "LOWER",
   shadowDailyKeyboardConfirmShort: "OK",
-  shadowDailyKeyboardCancelShort: "BACK",
   shadowDailyKeyboardTooLong: "Input is limited to {{max}} characters.",
   shadowDailyKeyboardControlCharacters: "Control characters and newlines are not allowed.",
 });

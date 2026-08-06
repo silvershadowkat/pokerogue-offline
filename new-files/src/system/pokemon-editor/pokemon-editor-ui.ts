@@ -68,7 +68,10 @@ function showOptions(
     maxOptions,
     initialCursor,
     measureVisibleOptionsOnly: options.length > 50,
-    pageStep: navigation.pageStep ?? (options.length > maxOptions ? maxOptions : undefined),
+    // Arrow rows are visual indicators, not data. Move by exactly the number
+    // of data rows visible between both arrows so adjacent pages cannot hide
+    // or skip a move.
+    pageStep: navigation.pageStep ?? (options.length > maxOptions ? Math.max(1, maxOptions - 2) : undefined),
     pageStepMinIndex: navigation.pageStepMinIndex,
     pageStepMaxIndex: navigation.pageStepMaxIndex,
     wrapNavigation: navigation.wrapNavigation,

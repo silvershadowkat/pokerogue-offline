@@ -1,5 +1,5 @@
 export type DailySeedKeyboardPage = "lowercase" | "uppercase" | "numbersSymbols";
-export type DailySeedKeyboardAction = "backspace" | "clear" | "page" | "confirm" | "cancel";
+export type DailySeedKeyboardAction = "backspace" | "clear" | "page" | "confirm";
 
 export interface DailySeedKeyboardCharacterKey {
   kind: "character";
@@ -43,7 +43,6 @@ const actionColumns: Partial<Record<number, DailySeedKeyboardAction>> = {
   0: "page",
   2: "backspace",
   4: "clear",
-  6: "cancel",
   8: "confirm",
 };
 

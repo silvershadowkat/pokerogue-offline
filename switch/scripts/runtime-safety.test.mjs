@@ -17,6 +17,10 @@ const liveSettingsPatch = readFileSync(
   new URL("../../patches/all/node/live-cheat-settings.js", import.meta.url),
   "utf8",
 );
+const shopAnimationsPatch = readFileSync(
+  new URL("../../patches/all/node/shop-animations.js", import.meta.url),
+  "utf8",
+);
 const logger = readFileSync(new URL("../src/logger.ts", import.meta.url), "utf8");
 const domShim = readFileSync(new URL("../src/dom-shim.ts", import.meta.url), "utf8");
 const buildGame = readFileSync(new URL("./build-game.mjs", import.meta.url), "utf8");
@@ -134,6 +138,15 @@ test("nx.js canvas textures bypass the temporary OffscreenCanvas upload path", (
 test("generated runtime patches are idempotent by their installed markers", () => {
   assert.match(gamePatch, /if \(!main\.includes\("__silverShadowLateEndedGuardInstalled"\)\)/);
   assert.match(gamePatch, /if \(!main\.includes\("__silverShadowTypedCanvasUploadInstalled"\)\)/);
+});
+
+test("instant shop presentation reuses live cards off Switch without replacing Switch memory safeguards", () => {
+  assert.match(shopAnimationsPatch, /SHOP_ANIMATIONS_OVERRIDE === false && !\(globalThis as any\)\.Switch/);
+  assert.match(shopAnimationsPatch, /instantUiHandler\.canReuseRewardOptions\(instantModifierCount\)/);
+  assert.match(shopAnimationsPatch, /option\.showImmediately\(\)/);
+  assert.match(shopAnimationsPatch, /handleTutorial\(Tutorial\.SELECT_ITEM\)[\s\S]*return true;/);
+  assert.match(gamePatch, /switchRerollRecoveryThresholdMiB = 2450/);
+  assert.match(gamePatch, /switchRerollSafetyLimitMiB = 2600/);
 });
 
 test("the compiled game cache tracks the synchronized Daily archive", () => {

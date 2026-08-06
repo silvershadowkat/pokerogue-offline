@@ -29,6 +29,7 @@ import {
   commitPendingDailyRunLaunch,
   getCurrentDailyRunMetadata,
   getPendingDailyRunLaunch,
+  getDailyRunSaveLabels,
   restoreDailyRunMetadata,
   setPendingDailyRunLaunch,
 } from "#system/daily-run/daily-run-types";
@@ -217,12 +218,12 @@ describe("Daily Run Text Seed keyboard", () => {
     expect(characters.join("")).toBe("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=");
   });
 
-  it("keeps PAGE, DEL, CLR, BACK, and OK in a fixed bottom row", () => {
+  it("keeps the page switcher, DEL, CLR, and OK in a fixed bottom row", () => {
     for (const page of ["lowercase", "uppercase", "numbersSymbols"] as const) {
       const rows = buildDailySeedKeyboardRows(page);
       expect(rows).toHaveLength(DAILY_SEED_KEYBOARD_ACTION_ROW + 1);
       expect(rows[DAILY_SEED_KEYBOARD_ACTION_ROW].map(key => key.kind === "action" ? key.action : null)).toEqual([
-        "page", null, "backspace", null, "clear", null, "cancel", null, "confirm",
+        "page", null, "backspace", null, "clear", null, null, null, "confirm",
       ]);
     }
   });
@@ -245,18 +246,30 @@ describe("Daily Run Text Seed keyboard", () => {
 describe("Previous Seed history", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("stores only Text, Offline, and Random launches and does not re-add Previous Seed", () => {
+  it("stores Official, Offline, Random, and Text launches as newest-first run events", () => {
     const storage = installStorage();
-    recordDailySeedHistory({ mode: "official", canonicalSeed: "official" });
+    recordDailySeedHistory({
+      mode: "official",
+      canonicalSeed: "official",
+      selectedDate: "2026-08-05",
+      archiveSource: "cached",
+      specialDailyConfig: true,
+      serializedDailyConfig: '{"seed":"official"}',
+    }, 50);
     recordDailySeedHistory({ mode: "previous", canonicalSeed: "previous" });
     recordDailySeedHistory({ mode: "random", canonicalSeed: "random" }, 100);
     recordDailySeedHistory({ mode: "offline", canonicalSeed: "offline", selectedDate: "2026-08-05" }, 200);
     recordDailySeedHistory({ mode: "custom-text", canonicalSeed: "text", friendlyTextSeed: "Monday" }, 300);
-    expect(JSON.parse(storage.get(DAILY_SEED_HISTORY_STORAGE_KEY) ?? "[]")).toHaveLength(3);
-    expect(readDailySeedHistory().map(entry => entry.canonicalSeed)).toEqual(["text", "offline", "random"]);
+    expect(JSON.parse(storage.get(DAILY_SEED_HISTORY_STORAGE_KEY) ?? "[]")).toHaveLength(4);
+    expect(readDailySeedHistory().map(entry => entry.canonicalSeed)).toEqual(["text", "offline", "random", "official"]);
+    expect(readDailySeedHistory()[3]).toMatchObject({
+      archiveSource: "cached",
+      specialDailyConfig: true,
+      serializedDailyConfig: '{"seed":"official"}',
+    });
   });
 
-  it("deduplicates reused generated seeds and caps newest-first history at 1,000", () => {
+  it("retains repeated runs as distinct events and caps newest-first history at 1,000", () => {
     const stored = Array.from({ length: MAX_DAILY_SEED_HISTORY_ENTRIES + 5 }, (_, index) => ({
       canonicalSeed: `seed-${index}`,
       mode: "random",
@@ -267,8 +280,27 @@ describe("Previous Seed history", () => {
     expect(readDailySeedHistory()).toHaveLength(1000);
     expect(readDailySeedHistory()[0].canonicalSeed).toBe("seed-1004");
     recordDailySeedHistory({ mode: "random", canonicalSeed: "seed-1004" }, 2000);
-    expect(readDailySeedHistory()[0]).toMatchObject({ canonicalSeed: "seed-1004", useCount: 2 });
+    expect(readDailySeedHistory()[0]).toMatchObject({ canonicalSeed: "seed-1004", usedAt: 2000, useCount: 1 });
+    expect(readDailySeedHistory().filter(entry => entry.canonicalSeed === "seed-1004")).toHaveLength(2);
     expect(readDailySeedHistory()).toHaveLength(1000);
+  });
+});
+
+describe("Daily Run save labels", () => {
+  it("uses compact source-specific labels and preserves the original source on replay", () => {
+    expect(getDailyRunSaveLabels({ mode: "official", canonicalSeed: "a" })).toEqual({
+      short: "Official",
+      long: "Official Daily Run",
+    });
+    expect(getDailyRunSaveLabels({ mode: "offline", canonicalSeed: "b" }).long).toBe("Offline Daily Run");
+    expect(getDailyRunSaveLabels({ mode: "random", canonicalSeed: "c" })).toEqual({
+      short: "Random",
+      long: "Random Run",
+    });
+    expect(getDailyRunSaveLabels({ mode: "custom-text", canonicalSeed: "d" })).toEqual({
+      short: "Text",
+      long: "Text Run",
+    });
   });
 });
 

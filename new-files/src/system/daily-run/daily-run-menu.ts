@@ -228,11 +228,11 @@ function historyModeLabel(entry: DailySeedHistoryEntry): string {
 function historyTimestamp(timestamp: number): string {
   const date = new Date(timestamp);
   const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 function historyLabel(entry: DailySeedHistoryEntry): string {
-  const identity = entry.mode === "offline"
+  const identity = entry.mode === "official" || entry.mode === "offline"
     ? entry.selectedDate ?? "UTC"
     : entry.mode === "custom-text"
       ? `“${Array.from(entry.friendlyTextSeed ?? "").slice(0, 16).join("")}”`
@@ -241,11 +241,13 @@ function historyLabel(entry: DailySeedHistoryEntry): string {
 }
 
 function historyHelp(entry: DailySeedHistoryEntry): string {
-  const detail = entry.mode === "offline"
-    ? t("shadowDailyPreviousOfflineDetail", { date: entry.selectedDate })
-    : entry.mode === "custom-text"
-      ? t("shadowDailyPreviousTextDetail", { text: entry.friendlyTextSeed })
-      : t("shadowDailyPreviousRandomDetail");
+  const detail = entry.mode === "official"
+    ? t("shadowDailyPreviousOfficialDetail", { date: entry.selectedDate })
+    : entry.mode === "offline"
+      ? t("shadowDailyPreviousOfflineDetail", { date: entry.selectedDate })
+      : entry.mode === "custom-text"
+        ? t("shadowDailyPreviousTextDetail", { text: entry.friendlyTextSeed })
+        : t("shadowDailyPreviousRandomDetail");
   return `${detail}\n${t("shadowDailySeedValue", { seed: entry.canonicalSeed })}`;
 }
 
@@ -260,14 +262,19 @@ function showPreviousSeedList(context: DailyRunMenuContext, cursor = 0): void {
     label: historyLabel(entry),
     handler: () => {
       context.launch({
-        seedOrConfig: entry.canonicalSeed,
+        seedOrConfig: entry.serializedDailyConfig ?? entry.canonicalSeed,
         metadata: {
-          mode: "previous",
+          // Preserve the original run type. This controls both the save-slot
+          // label and the new history event created for this replay.
+          mode: entry.mode,
           canonicalSeed: entry.canonicalSeed,
           selectedDate: entry.selectedDate,
           friendlyTextSeed: entry.friendlyTextSeed,
           algorithmVersion: entry.algorithmVersion,
-          specialDailyConfig: false,
+          archiveSource: entry.archiveSource,
+          archiveDownloadedAt: entry.archiveDownloadedAt,
+          specialDailyConfig: entry.specialDailyConfig ?? false,
+          serializedDailyConfig: entry.serializedDailyConfig,
         },
       });
       return true;

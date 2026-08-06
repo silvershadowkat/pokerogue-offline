@@ -2792,7 +2792,10 @@ const modifierMarkClaimedReplacement = `  reuse(modifierTypeOption: ModifierType
     }
     this.claimedText.setVisible(true);
   }`;
-if (!modifierSelectUi.includes(modifierMarkClaimedReplacement)) {
+if (
+  !modifierSelectUi.includes(modifierMarkClaimedReplacement)
+  && !modifierSelectUi.includes("reuse(modifierTypeOption: ModifierTypeOption): void")
+) {
   if (!modifierSelectUi.includes(modifierMarkClaimedAnchor)) {
     fail("Could not find the ModifierOption claimed-state reuse anchor");
   }

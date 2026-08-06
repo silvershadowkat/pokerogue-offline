@@ -58,8 +58,8 @@ export class DailySeedKeyboardUiHandler extends UiHandler {
     this.countText = addTextObject(globalScene.scaledCanvas.width - 12, 10, "", TextStyle.WINDOW).setOrigin(1, 0);
     this.valueText = addTextObject(12, 25, "", TextStyle.WINDOW, { maxLines: 2, lineSpacing: 2 });
     this.valueText.setWordWrapWidth(globalScene.scaledCanvas.width - 24);
-    this.statusText = addTextObject(12, 47, "", TextStyle.WINDOW, { maxLines: 1 });
-    this.pageText = addTextObject(globalScene.scaledCanvas.width / 2, 160, "", TextStyle.WINDOW).setOrigin(0.5, 0);
+    this.statusText = addTextObject(12, 44, "", TextStyle.WINDOW, { maxLines: 1 });
+    this.pageText = addTextObject(globalScene.scaledCanvas.width / 2, 156, "", TextStyle.WINDOW).setOrigin(0.5, 0);
     this.gridContainer = globalScene.add.container(28, 67);
 
     this.keyboardContainer.add([
@@ -187,12 +187,18 @@ export class DailySeedKeyboardUiHandler extends UiHandler {
     if (key.kind === "spacer") {
       return "";
     }
-    const labels: Record<DailySeedKeyboardAction, string> = {
+    if (key.action === "page") {
+      const nextPageLabel = this.page === "lowercase"
+        ? "shadowDailyKeyboardNextUpper"
+        : this.page === "uppercase"
+          ? "shadowDailyKeyboardNextNumbers"
+          : "shadowDailyKeyboardNextLower";
+      return i18next.t(`menu:${nextPageLabel}`);
+    }
+    const labels: Record<Exclude<DailySeedKeyboardAction, "page">, string> = {
       backspace: "shadowDailyKeyboardBackspaceShort",
       clear: "shadowDailyKeyboardClearShort",
-      page: "shadowDailyKeyboardPageShort",
       confirm: "shadowDailyKeyboardConfirmShort",
-      cancel: "shadowDailyKeyboardCancelShort",
     };
     return i18next.t(`menu:${labels[key.action]}`);
   }
@@ -236,9 +242,6 @@ export class DailySeedKeyboardUiHandler extends UiHandler {
         return true;
       case "confirm":
         return this.confirmValue();
-      case "cancel":
-        this.backspace();
-        return true;
     }
   }
 

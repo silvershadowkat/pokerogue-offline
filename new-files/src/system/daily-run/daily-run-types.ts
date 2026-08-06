@@ -30,6 +30,27 @@ export interface DailyRunLaunchRequest {
   metadata: DailyRunMetadata;
 }
 
+export interface DailyRunSaveLabels {
+  short: string;
+  long: string;
+}
+
+/** Compact names used by the two title rows in the save-slot browser. */
+export function getDailyRunSaveLabels(metadata?: DailyRunMetadata): DailyRunSaveLabels {
+  switch (metadata?.mode) {
+    case "official":
+      return { short: "Official", long: "Official Daily Run" };
+    case "offline":
+      return { short: "Offline", long: "Offline Daily Run" };
+    case "random":
+      return { short: "Random", long: "Random Run" };
+    case "custom-text":
+      return { short: "Text", long: "Text Run" };
+    default:
+      return { short: "Daily Run", long: "Daily Run" };
+  }
+}
+
 let pendingDailyRunLaunch: DailyRunLaunchRequest | undefined;
 let currentDailyRunMetadata: DailyRunMetadata | undefined;
 
@@ -59,7 +80,7 @@ export function commitPendingDailyRunLaunch(): DailyRunLaunchRequest | undefined
   if (request) {
     currentDailyRunMetadata = cloneMetadata(request.metadata);
     // Record only after the player selected a save slot and the launch was
-    // committed. Official and Previous Seed launches are deliberately ignored.
+    // committed. Replays retain their original mode and become new events.
     recordDailySeedHistory(request.metadata);
   }
   pendingDailyRunLaunch = undefined;
