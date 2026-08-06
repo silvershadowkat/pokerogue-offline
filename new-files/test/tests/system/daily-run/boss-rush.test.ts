@@ -1,12 +1,18 @@
+import { Battle } from "#app/battle";
+import { globalScene } from "#app/global-scene";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+import { Egg } from "#data/egg";
 import { AbilityId } from "#enums/ability-id";
+import { BattleType } from "#enums/battle-type";
+import { ModifierPoolType } from "#enums/modifier-pool-type";
 import { ModifierTier } from "#enums/modifier-tier";
 import { MoveId } from "#enums/move-id";
 import { PokemonType } from "#enums/pokemon-type";
 import { SpeciesFormKey } from "#enums/species-form-key";
 import { SpeciesId } from "#enums/species-id";
+import { VariantTier } from "#enums/variant-tier";
 import { AttackTypeBoosterModifier } from "#modifiers/modifier";
-import { getModifierTypeFuncById, ModifierType } from "#modifiers/modifier-type";
+import { getModifierTypeFuncById, ModifierType, regenerateModifierPoolThresholds } from "#modifiers/modifier-type";
 import { CommandPhase } from "#phases/command-phase";
 import {
   BOSS_RUSH_CONFIG,
@@ -29,7 +35,12 @@ import {
   isSafeBossRushTransformation,
   isSingleStage,
 } from "#system/daily-run/boss-rush";
-import { isBossRushModifierTypeUseful } from "#system/daily-run/boss-rush-items";
+import {
+  getBossRushFixedShopItemIds,
+  getBossRushShopOptions,
+  isBossRushModifierTypeUseful,
+} from "#system/daily-run/boss-rush-items";
+import { getDailyCompletionEggSpecs } from "#system/daily-run/daily-completion-reward";
 import { canonicalSeedFromText } from "#system/daily-run/daily-run-seed-utils";
 import {
   clearDailyRunMetadata,
@@ -210,11 +221,67 @@ describe("Boss Rush generation", () => {
     };
     expect(isBossRushModifierTypeUseful(item("MAX_POTION"), party, BossRushVariant.NORMAL)).toBe(false);
     expect(isBossRushModifierTypeUseful(item("MAX_POTION"), party, BossRushVariant.HARD)).toBe(true);
+    expect(isBossRushModifierTypeUseful(item("RARE_CANDY"), party, BossRushVariant.NORMAL)).toBe(true);
     expect(isBossRushModifierTypeUseful(item("POTION"), party, BossRushVariant.HARD)).toBe(false);
     for (const id of ["ULTRA_BALL", "LURE", "MAP", "IV_SCANNER"]) {
       expect(isBossRushModifierTypeUseful(item(id), party, BossRushVariant.NORMAL)).toBe(false);
       expect(isBossRushModifierTypeUseful(item(id), party, BossRushVariant.HARD)).toBe(false);
     }
+  });
+
+  it("keeps five-slot shops variant appropriate", () => {
+    expect(getBossRushFixedShopItemIds(BossRushVariant.NORMAL, 1)).toEqual(["RARE_CANDY"]);
+    const hard = getBossRushFixedShopItemIds(BossRushVariant.HARD, 1);
+    expect(hard).toHaveLength(3);
+    expect(hard).toEqual(["HYPER_POTION", "MAX_POTION", "FULL_RESTORE"]);
+    expect(getBossRushFixedShopItemIds(BossRushVariant.HARD, 2)).not.toEqual(hard);
+  });
+
+  it("generates five stable purchasable options for both Boss Rush variants", () => {
+    const party = [
+      globalScene.addPlayerPokemon(speciesDataRegistry.getSpecies(SpeciesId.BULBASAUR), 100),
+      globalScene.addPlayerPokemon(speciesDataRegistry.getSpecies(SpeciesId.CHARMANDER), 100),
+      globalScene.addPlayerPokemon(speciesDataRegistry.getSpecies(SpeciesId.SQUIRTLE), 100),
+    ];
+    const previousBattle = globalScene.currentBattle;
+    try {
+      for (const variant of [BossRushVariant.NORMAL, BossRushVariant.HARD]) {
+        restoreDailyRunMetadata({ mode: "boss-rush", canonicalSeed: "stable-shop", bossRushVariant: variant });
+        globalScene.currentBattle = new Battle(globalScene.gameMode, {
+          waveIndex: 1,
+          battleType: BattleType.WILD,
+          double: false,
+        });
+        regenerateModifierPoolThresholds(party, ModifierPoolType.PLAYER);
+        const first = getBossRushShopOptions(party, 1, 400);
+        const replay = getBossRushShopOptions(party, 1, 400);
+        expect(first).toHaveLength(BOSS_RUSH_CONFIG.shopOptionCount);
+        expect(first.map(option => [option.type.id, option.cost])).toEqual(
+          replay.map(option => [option.type.id, option.cost]),
+        );
+        expect(first.every(option => option.cost > 0)).toBe(true);
+        if (variant === BossRushVariant.NORMAL) {
+          expect(first.map(option => option.type.id)).toContain("RARE_CANDY");
+        } else {
+          expect(first.map(option => option.type.id)).toEqual(
+            expect.arrayContaining(["HYPER_POTION", "MAX_POTION", "FULL_RESTORE"]),
+          );
+        }
+      }
+    } finally {
+      globalScene.currentBattle = previousBattle;
+      clearDailyRunMetadata();
+    }
+  });
+
+  it("retains all three shiny tiers in the actual Egg objects", () => {
+    const eggs = getDailyCompletionEggSpecs(SpeciesId.BULBASAUR).map(spec => new Egg(spec));
+    expect(eggs.map(egg => [egg.isShiny, egg.variantTier])).toEqual([
+      [false, VariantTier.STANDARD],
+      [true, VariantTier.STANDARD],
+      [true, VariantTier.RARE],
+      [true, VariantTier.EPIC],
+    ]);
   });
 
   it("rejects Run through the no-turn-cost message path", () => {

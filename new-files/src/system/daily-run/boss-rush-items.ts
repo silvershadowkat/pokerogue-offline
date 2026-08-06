@@ -30,7 +30,6 @@ const ALWAYS_IRRELEVANT_IDS = new Set([
   "MAX_LURE",
   "MAP",
   "IV_SCANNER",
-  "RARE_CANDY",
   "EXP_CHARM",
   "SUPER_EXP_CHARM",
   "GOLDEN_EXP_CHARM",
@@ -40,6 +39,27 @@ const ALWAYS_IRRELEVANT_IDS = new Set([
 ]);
 
 const WEAK_LEVEL_100_RECOVERY_IDS = new Set(["POTION", "SUPER_POTION", "ETHER", "ELIXIR", "REVIVE"]);
+
+const HARD_RECOVERY_SHOP_IDS = [
+  "HYPER_POTION",
+  "MAX_POTION",
+  "FULL_RESTORE",
+  "MAX_REVIVE",
+  "MAX_ELIXIR",
+  "MAX_ETHER",
+  "FULL_HEAL",
+] as const;
+
+export function getBossRushFixedShopItemIds(variant: BossRushVariant, waveIndex: number): string[] {
+  if (variant === BossRushVariant.NORMAL) {
+    return ["RARE_CANDY"];
+  }
+  const offset = (Math.max(1, waveIndex) - 1) % HARD_RECOVERY_SHOP_IDS.length;
+  return Array.from(
+    { length: 3 },
+    (_, index) => HARD_RECOVERY_SHOP_IDS[(offset + index) % HARD_RECOVERY_SHOP_IDS.length],
+  );
+}
 
 function isRecoveryType(type: ModifierType): boolean {
   return (
@@ -66,6 +86,7 @@ export function isBossRushModifierTypeUseful(
   type: ModifierType,
   party: PlayerPokemon[],
   variant = getBossRushVariant(),
+  context: "reward" | "shop" = "reward",
 ): boolean {
   if (
     type.tier < ModifierTier.GREAT
@@ -81,6 +102,11 @@ export function isBossRushModifierTypeUseful(
   if (variant === BossRushVariant.HARD && WEAK_LEVEL_100_RECOVERY_IDS.has(type.id)) {
     return false;
   }
+  // A Hard shop may sell recovery before it is immediately usable; damage,
+  // status, fainting, and PP consumption can all occur in the next battle.
+  if (context === "shop" && variant === BossRushVariant.HARD && isRecoveryType(type)) {
+    return true;
+  }
   return canAffectParty(type, party);
 }
 
@@ -89,6 +115,7 @@ function generateUsefulOptions(
   variant: BossRushVariant,
   count: number,
   excludeRecovery = false,
+  excludedIds: ReadonlySet<string> = new Set(),
 ): ModifierTypeOption[] {
   const distinct: ModifierTypeOption[] = [];
   const duplicates: ModifierTypeOption[] = [];
@@ -102,6 +129,7 @@ function generateUsefulOptions(
       !option
       || !isBossRushModifierTypeUseful(option.type, party, variant)
       || (excludeRecovery && isRecoveryType(option.type))
+      || excludedIds.has(option.type.id)
     ) {
       continue;
     }
@@ -126,7 +154,15 @@ export function getBossRushRewardOptions(party: PlayerPokemon[]): ModifierTypeOp
 }
 
 function fixedShopOption(
-  id: "MAX_POTION" | "FULL_RESTORE" | "MAX_REVIVE" | "FULL_HEAL" | "MAX_ETHER" | "MAX_ELIXIR",
+  id:
+    | "RARE_CANDY"
+    | "HYPER_POTION"
+    | "MAX_POTION"
+    | "FULL_RESTORE"
+    | "MAX_REVIVE"
+    | "FULL_HEAL"
+    | "MAX_ETHER"
+    | "MAX_ELIXIR",
   cost: number,
 ): ModifierTypeOption {
   const type = getModifierTypeFuncById(id)();
@@ -135,7 +171,7 @@ function fixedShopOption(
   return new ModifierTypeOption(type, 0, cost);
 }
 
-/** Exactly five stable purchases; called independently by the UI and purchase phase. */
+/** Exactly five purchases generated once and retained by SelectModifierPhase. */
 export function getBossRushShopOptions(
   party: PlayerPokemon[],
   waveIndex: number,
@@ -148,18 +184,32 @@ export function getBossRushShopOptions(
   let options: ModifierTypeOption[] = [];
   globalScene.executeWithSeedOffset(
     () => {
-      options = generateUsefulOptions(party, config.variant, config.shopOptionCount, true);
-      if (config.variant === BossRushVariant.HARD) {
-        const recovery = [
-          fixedShopOption("FULL_RESTORE", baseCost * 2.25),
-          fixedShopOption("MAX_REVIVE", baseCost * 2.75),
-          fixedShopOption("MAX_ELIXIR", baseCost * 2.5),
-          fixedShopOption("MAX_POTION", baseCost * 1.5),
-          fixedShopOption("FULL_HEAL", baseCost),
-          fixedShopOption("MAX_ETHER", baseCost),
-        ].filter(option => isBossRushModifierTypeUseful(option.type, party, config.variant));
-        const recoveryToOffer = recovery.slice(0, 2);
-        options.splice(options.length - recoveryToOffer.length, recoveryToOffer.length, ...recoveryToOffer);
+      const permanentCount = config.variant === BossRushVariant.HARD ? 2 : config.shopOptionCount - 1;
+      options = generateUsefulOptions(
+        party,
+        config.variant,
+        permanentCount,
+        true,
+        config.variant === BossRushVariant.NORMAL ? new Set(["RARE_CANDY"]) : undefined,
+      );
+      if (config.variant === BossRushVariant.NORMAL) {
+        // Rare Candy remains meaningful at the level cap in this engine and is
+        // the one fixed progression purchase; the other four stay seeded.
+        options.push(fixedShopOption("RARE_CANDY", baseCost * 1.5));
+      } else {
+        const costMultipliers: Record<(typeof HARD_RECOVERY_SHOP_IDS)[number], number> = {
+          HYPER_POTION: 1,
+          MAX_POTION: 1.5,
+          FULL_RESTORE: 2.25,
+          MAX_REVIVE: 2.75,
+          MAX_ELIXIR: 2.5,
+          MAX_ETHER: 1.25,
+          FULL_HEAL: 1,
+        };
+        for (const id of getBossRushFixedShopItemIds(config.variant, waveIndex)) {
+          const recoveryId = id as (typeof HARD_RECOVERY_SHOP_IDS)[number];
+          options.push(fixedShopOption(recoveryId, baseCost * costMultipliers[recoveryId]));
+        }
       }
       options.forEach(option => {
         if (!option.cost) {

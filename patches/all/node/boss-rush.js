@@ -40,6 +40,7 @@ function copyShared(relativePath, targetPath = relativePath) {
 
 copyShared(path.join("src", "system", "daily-run", "boss-rush.ts"));
 copyShared(path.join("src", "system", "daily-run", "boss-rush-items.ts"));
+copyShared(path.join("src", "system", "daily-run", "daily-run-rules.ts"));
 copyShared(
   path.join("test", "tests", "system", "daily-run", "boss-rush.test.ts"),
   path.join("test", "tests", "system", "daily-run", "boss-rush.test.ts"),
@@ -366,7 +367,8 @@ if (!command.includes("BOSS_RUSH_CONFIG")) {
     command,
     'import { isDailyFinalBoss } from "#data/daily-seed/daily-seed-utils";',
     `import { isDailyFinalBoss } from "#data/daily-seed/daily-seed-utils";
-import { BOSS_RUSH_CONFIG, isBossRushMode } from "#system/daily-run/boss-rush";`,
+import { BOSS_RUSH_CONFIG, isBossRushMode } from "#system/daily-run/boss-rush";
+import { isDailyRunEscapeBlocked } from "#system/daily-run/daily-run-rules";`,
     "Boss Rush Command imports",
   );
   command = replaceRequired(
@@ -389,7 +391,7 @@ import { BOSS_RUSH_CONFIG, isBossRushMode } from "#system/daily-run/boss-rush";`
     `  private handleRunCommand(): boolean {
     const { currentBattle, arena } = globalScene;`,
     `  private handleRunCommand(): boolean {
-    if (isBossRushMode() && !BOSS_RUSH_CONFIG.runningEnabled) {
+    if (isDailyRunEscapeBlocked()) {
       this.queueShowText("battle:shadowBossRushNoRun");
       return false;
     }
@@ -416,6 +418,13 @@ import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/of
 
     const modifierSelectCallback`,
     `    this.typeOptions = this.getModifierTypeOptions(modifierCount);
+    const baseShopCost = new NumberHolder(globalScene.getWaveMoneyAmount(1));
+    globalScene.applyModifier(HealShopCostModifier, true, baseShopCost);
+    this.shopOptions = globalScene.gameMode.getShopStatus()
+      ? isBossRushMode()
+        ? getBossRushShopOptions(globalScene.getPlayerParty(), globalScene.currentBattle.waveIndex, baseShopCost.value)
+        : getPlayerShopModifierTypeOptionsForWave(globalScene.currentBattle.waveIndex, baseShopCost.value)
+      : [];
     if (isBossRushMode()) {
       logBossRushRewards(this.typeOptions.map(option => option.type.tier));
     }
@@ -429,17 +438,36 @@ import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/of
       globalScene.currentBattle.waveIndex,
       globalScene.getWaveMoneyAmount(1),
     );`,
-    `    const shopOptions = isBossRushMode()
-      ? getBossRushShopOptions(
-        globalScene.getPlayerParty(),
-        globalScene.currentBattle.waveIndex,
-        globalScene.getWaveMoneyAmount(1),
-      )
-      : getPlayerShopModifierTypeOptionsForWave(
-        globalScene.currentBattle.waveIndex,
-        globalScene.getWaveMoneyAmount(1),
-      );`,
-    "Boss Rush shop purchase options",
+    `    const shopOptions = this.shopOptions;`,
+    "stable shop purchase options",
+  );
+  reward = replaceRequired(
+    reward,
+    `    const modifierType = shopOption.type;
+    // Apply Black Sludge to healing item cost
+    const healingItemCost = new NumberHolder(shopOption.cost);
+    globalScene.applyModifier(HealShopCostModifier, true, healingItemCost);
+    const cost = healingItemCost.value;`,
+    `    const modifierType = shopOption.type;
+    // The cached option already contains the displayed, modifier-adjusted cost.
+    const cost = shopOption.cost;`,
+    "stable displayed shop cost",
+  );
+  reward = replaceRequired(
+    reward,
+    `  private typeOptions: ModifierTypeOption[];`,
+    `  private typeOptions: ModifierTypeOption[];
+  private shopOptions: ModifierTypeOption[] = [];`,
+    "stable shop option field",
+  );
+  reward = replaceRequired(
+    reward,
+    `      [...this.claimedRewardIndices],
+    );`,
+    `      [...this.claimedRewardIndices],
+      this.shopOptions,
+    );`,
+    "stable shop UI handoff",
   );
   reward = replaceRequired(
     reward,
@@ -472,11 +500,12 @@ import { isBossRushMode } from "#system/daily-run/boss-rush";`,
       ? getPlayerShopModifierTypeOptionsForWave(globalScene.currentBattle.waveIndex, baseShopCost.value)
       : [];`,
     `    const shopTypeOptions = hasShop
-      ? isBossRushMode()
-        ? getBossRushShopOptions(globalScene.getPlayerParty(), globalScene.currentBattle.waveIndex, baseShopCost.value)
-        : getPlayerShopModifierTypeOptionsForWave(globalScene.currentBattle.waveIndex, baseShopCost.value)
+      ? ((args[5] as ModifierTypeOption[] | undefined)
+        ?? (isBossRushMode()
+          ? getBossRushShopOptions(globalScene.getPlayerParty(), globalScene.currentBattle.waveIndex, baseShopCost.value)
+          : getPlayerShopModifierTypeOptionsForWave(globalScene.currentBattle.waveIndex, baseShopCost.value)))
       : [];`,
-    "Boss Rush five-item shop UI",
+    "stable five-item shop UI",
   );
   write(modifierSelectPath, modifierSelect);
 }

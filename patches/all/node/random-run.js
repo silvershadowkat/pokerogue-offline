@@ -55,7 +55,8 @@ import {
   isRandomRunMode,
   isRandomRunTrainerBossWave,
   isRandomRunTrainerWave,
-} from "#system/daily-run/random-run";`,
+} from "#system/daily-run/random-run";
+import { shouldEnableDailyShop } from "#system/daily-run/daily-run-rules";`,
     "Random Run GameMode imports",
   );
   gameMode = replaceRequired(
@@ -116,6 +117,14 @@ import {
   }`,
     "Random Run boss cadence",
   );
+  gameMode = replaceRequired(
+    gameMode,
+    `    const status = new BooleanHolder(!this.hasNoShop);`,
+    `    // Daily-derived modes use the standard shop unless a mode-specific
+    // item provider (such as Boss Rush) replaces its contents.
+    const status = new BooleanHolder(shouldEnableDailyShop(!this.hasNoShop, this.isDaily));`,
+    "Daily shop availability",
+  );
   write(gameModePath, gameMode);
 }
 
@@ -164,6 +173,48 @@ import { isRandomRunMode } from "#system/daily-run/random-run";`,
     "Random Run normal final-level behavior",
   );
   write(dailySeedUtilsPath, dailySeedUtils);
+}
+
+const abilityAttrsPath = path.join(gameRoot, "src", "data", "abilities", "ab-attrs.ts");
+let abilityAttrs = read(abilityAttrsPath);
+if (!abilityAttrs.includes("isDailyRunEscapeBlocked")) {
+  abilityAttrs = replaceRequired(
+    abilityAttrs,
+    'import { BerryModifierType } from "#modifiers/modifier-type";',
+    `import { BerryModifierType } from "#modifiers/modifier-type";
+import { isDailyRunEscapeBlocked } from "#system/daily-run/daily-run-rules";`,
+    "Daily final-boss phazing import",
+  );
+  abilityAttrs = replaceRequired(
+    abilityAttrs,
+    `      if (!globalScene.currentBattle.waveIndex || globalScene.currentBattle.waveIndex % 10 === 0) {`,
+    `      if (
+        isDailyRunEscapeBlocked()
+        || !globalScene.currentBattle.waveIndex
+        || globalScene.currentBattle.waveIndex % 10 === 0
+      ) {`,
+    "Daily final-boss forced flee guard",
+  );
+  abilityAttrs = replaceRequired(
+    abilityAttrs,
+    `    if (
+      !player
+      && globalScene.currentBattle.battleType === BattleType.WILD
+      && !globalScene.currentBattle.waveIndex
+      && globalScene.currentBattle.waveIndex % 10 === 0
+    ) {
+      return false;
+    }`,
+    `    if (
+      !player
+      && globalScene.currentBattle.battleType === BattleType.WILD
+      && isDailyRunEscapeBlocked()
+    ) {
+      return false;
+    }`,
+    "Daily final-boss forced switch condition",
+  );
+  write(abilityAttrsPath, abilityAttrs);
 }
 
 const gameDataPath = path.join(gameRoot, "src", "system", "game-data.ts");

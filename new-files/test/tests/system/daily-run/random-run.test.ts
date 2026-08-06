@@ -5,6 +5,7 @@ import {
   getDailyCompletionEggSpecs,
   selectDailyCompletionRewardSpecies,
 } from "#system/daily-run/daily-completion-reward";
+import { shouldBlockDailyRunEscape, shouldEnableDailyShop } from "#system/daily-run/daily-run-rules";
 import { getDailyRunCompletionKey, getDailyRunDisplayMetadata } from "#system/daily-run/daily-run-types";
 import {
   getRandomRunConfig,
@@ -58,6 +59,20 @@ describe("Random Run variants", () => {
     expect(getDailyRunDisplayMetadata(random50).history).toBe("Random50");
     expect(getDailyRunCompletionKey("same", random10)).not.toBe(getDailyRunCompletionKey("same", random50));
   });
+
+  it("blocks escaping only the finale outside Boss Rush", () => {
+    expect(shouldBlockDailyRunEscape(true, false, false)).toBe(false);
+    expect(shouldBlockDailyRunEscape(true, false, true)).toBe(true);
+    expect(shouldBlockDailyRunEscape(true, true, false)).toBe(true);
+    expect(shouldBlockDailyRunEscape(false, true, false)).toBe(true);
+    expect(shouldBlockDailyRunEscape(false, false, true)).toBe(false);
+  });
+
+  it("restores the standard shop for every Daily-derived run", () => {
+    expect(shouldEnableDailyShop(false, true)).toBe(true);
+    expect(shouldEnableDailyShop(true, false)).toBe(true);
+    expect(shouldEnableDailyShop(false, false)).toBe(false);
+  });
 });
 
 describe("Daily completion egg quartet", () => {
@@ -85,6 +100,14 @@ describe("Daily completion egg quartet", () => {
       },
     ];
     expect(selectDailyCompletionRewardSpecies(states, "seed")).toBe(SpeciesId.CHARMANDER);
+  });
+
+  it("does not choose a no-variant species while a full shiny quartet is supported", () => {
+    const states = [
+      { speciesId: SpeciesId.VANILLITE, caughtAttr: 0n, hasVariants: false },
+      { speciesId: SpeciesId.BULBASAUR, caughtAttr: 0n, hasVariants: true },
+    ];
+    expect(selectDailyCompletionRewardSpecies(states, "variant-safe-seed")).toBe(SpeciesId.BULBASAUR);
   });
 
   it("creates normal, common-shiny, rare-shiny, and epic-shiny eggs for one species", () => {

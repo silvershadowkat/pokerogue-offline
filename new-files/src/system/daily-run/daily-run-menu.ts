@@ -81,6 +81,17 @@ function showOptions(
   });
 }
 
+function cancelOption(handler: () => void, helpKey = "shadowDailyCancelHelp"): OptionSelectItem {
+  return {
+    label: t("cancel"),
+    handler: () => {
+      handler();
+      return true;
+    },
+    onHover: () => globalScene.ui.showText(t(helpKey), 0),
+  };
+}
+
 function showAcknowledgement(message: string, callback: () => void): void {
   inCleanMessageMode(() => globalScene.ui.showText(message, null, callback, null, true));
 }
@@ -247,7 +258,7 @@ export function showRandomRunVariantMenu(context: DailyRunMenuContext): void {
     handler: () => (openRandomRun(context, waveCount), true),
     onHover: () => globalScene.ui.showText(t("shadowDailyRandomWaveDescription", { waves: waveCount }), 0),
   }));
-  options.push({ label: t("cancel"), handler: () => (showDailyRunTypeMenu(context), true) });
+  options.push(cancelOption(() => showDailyRunTypeMenu(context)));
   showOptions(options, t("shadowDailyRandomVariantHelp"));
 }
 
@@ -303,7 +314,7 @@ export function showBossRushVariantMenu(context: DailyRunMenuContext): void {
         handler: () => (openBossRushVariant(context, BossRushVariant.HARD), true),
         onHover: () => globalScene.ui.showText(t("shadowDailyBossRushHardDescription"), 0),
       },
-      { label: t("cancel"), handler: () => (showDailyRunTypeMenu(context), true) },
+      cancelOption(() => showDailyRunTypeMenu(context)),
     ],
     t("shadowDailyBossRushVariantHelp"),
   );
@@ -405,11 +416,7 @@ function showPreviousSeedList(context: DailyRunMenuContext, cursor = 0): void {
     },
     onHover: () => globalScene.ui.showText(historyHelp(entry), 0),
   }));
-  options.push({
-    label: t("cancel"),
-    handler: () => (showCustomRunMenu(context), true),
-    onHover: () => globalScene.ui.showText(t("shadowDailyPreviousDescription"), 0),
-  });
+  options.push(cancelOption(() => showCustomRunMenu(context), "shadowDailyCancelPreviousHelp"));
   showOptions(options, historyHelp(entries[safeCursor]), safeCursor, HISTORY_VISIBLE_LIST_ROWS, HISTORY_LIST_PAGE_STEP);
 }
 
@@ -452,7 +459,7 @@ function showCustomRunMenu(context: DailyRunMenuContext): void {
       handler: () => (openTextSeedKeyboard(context), true),
       onHover: () => globalScene.ui.showText(t("shadowDailyTextDescription"), 0),
     },
-    { label: t("cancel"), handler: () => (showDailyRunTypeMenu(context), true) },
+    cancelOption(() => showDailyRunTypeMenu(context)),
   ];
   showOptions(options, t("shadowDailyPreviousDescription"));
 }
@@ -484,7 +491,7 @@ export function showDailyRunTypeMenu(context: DailyRunMenuContext): void {
       handler: () => (showRandomRunVariantMenu(context), true),
       onHover: () => globalScene.ui.showText(t("shadowDailyRandomDescription"), 0),
     },
-    { label: t("cancel"), handler: () => (inCleanMessageMode(context.cancel), true) },
+    cancelOption(() => inCleanMessageMode(context.cancel), "shadowDailyCancelRootHelp"),
   ];
   showOptions(options, t("shadowDailyOfficialDescription"));
 }

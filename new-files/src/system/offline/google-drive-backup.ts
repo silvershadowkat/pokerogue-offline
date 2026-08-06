@@ -172,7 +172,8 @@ export async function signIn(): Promise<string> {
       provider: "google",
       options: { scopes: ["https://www.googleapis.com/auth/drive.appdata"] },
     });
-    const token = res?.result?.accessToken?.token;
+    const result = res?.result;
+    const token = result && "accessToken" in result ? result.accessToken?.token : undefined;
     if (!token) {
       throw new Error("Google sign-in did not return an access token.");
     }
