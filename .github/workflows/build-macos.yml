@@ -63,6 +63,9 @@ jobs:
           curl -L https://raw.githubusercontent.com/pagefaultgames/pokerogue/beta/test/utils/saves/full_unlocks_sanitized.prsv \
             -o pokerogue-src/full_unlocks.prsv
 
+      - name: Synchronize embedded Daily Run archive
+        run: node scripts/sync-daily-seed-archive.mjs
+
       - name: Apply patches
         run: bash ${{ github.workspace }}/scripts/apply-patches.sh macos
 
@@ -106,6 +109,9 @@ jobs:
 
       - name: Apply post-build patches
         run: bash ${{ github.workspace }}/scripts/apply-post-build-patches.sh macos
+
+      - name: Validate embedded Daily archive
+        run: node scripts/validate-embedded-daily-archive.mjs
 
       - name: Convert app icon to ICNS
         run: |

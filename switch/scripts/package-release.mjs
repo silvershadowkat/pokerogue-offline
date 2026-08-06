@@ -36,6 +36,7 @@ import {
   buildAssetPacks,
   writeDeterministicAssetIndex,
 } from "./asset-pack-lib.mjs";
+import { validateDailyArchive } from "../../scripts/daily-run-archive-core.mjs";
 
 const releaseRoot = path.join(switchRoot, "release");
 const appRoot = path.join(releaseRoot, "switch", "SilverShadow-PokeRogue");
@@ -44,6 +45,7 @@ const licensesRoot = path.join(appRoot, "licenses");
 const sourceNro = path.join(switchRoot, "silvershadow-pokerogue-switch.nro");
 const outputNro = path.join(appRoot, "SilverShadow-PokeRogue.nro");
 const assetIndexName = "asset-packs.json";
+const dailyArchiveName = "daily-seeds.json";
 const licenseFiles = [
   "Phaser-MIT.txt",
   "PokeRogue-AGPL-3.0.txt",
@@ -72,6 +74,9 @@ await copyFile(
   path.join(buildResult.compiledGameRoot, buildResult.compiledEntryPoint),
   path.join(gameRoot, buildResult.compiledEntryPoint),
 );
+const compiledDailyArchive = path.join(buildResult.compiledGameRoot, dailyArchiveName);
+validateDailyArchive(await readFile(compiledDailyArchive, "utf8"));
+await copyFile(compiledDailyArchive, path.join(gameRoot, dailyArchiveName));
 await writeFile(path.join(gameRoot, "index.html"), switchIndexHtml());
 
 const sourceMap = path.join(buildResult.compiledGameRoot, "switch-entry.js.map");
@@ -126,6 +131,7 @@ const importantPaths = [
   "version.json",
   buildResult.compiledEntryPoint,
   assetIndexName,
+  dailyArchiveName,
 ];
 const requiredFiles = [];
 for (const relativePath of importantPaths) {
@@ -140,6 +146,8 @@ for (const relativePath of importantPaths) {
         ? "nx.js controlled real-game entry"
         : relativePath === assetIndexName
           ? "deterministic random-access asset-pack index"
+          : relativePath === dailyArchiveName
+            ? "loose built-in official Daily seed archive"
           : "package bootstrap metadata",
   });
 }
@@ -223,6 +231,7 @@ const checksumTargets = [
   "game/index.html",
   `game/${buildResult.compiledEntryPoint}`,
   `game/${assetIndexName}`,
+  `game/${dailyArchiveName}`,
   ...packResult.index.packs.map(pack => `game/${pack.path}`),
 ];
 const checksumLines = [];

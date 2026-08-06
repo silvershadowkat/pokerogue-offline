@@ -65,6 +65,9 @@ jobs:
           curl -L https://raw.githubusercontent.com/pagefaultgames/pokerogue/beta/test/utils/saves/full_unlocks_sanitized.prsv \
             -o pokerogue-src/full_unlocks.prsv
 
+      - name: Synchronize embedded Daily Run archive
+        run: node scripts/sync-daily-seed-archive.mjs
+
       - name: Apply patches
         shell: bash
         run: bash scripts/apply-patches.sh exe
@@ -123,6 +126,9 @@ jobs:
       - name: Apply post-build patches
         shell: bash
         run: bash scripts/apply-post-build-patches.sh exe
+
+      - name: Validate embedded Daily archive
+        run: node scripts/validate-embedded-daily-archive.mjs
 
       - name: Copy Electron config files into place
         shell: bash

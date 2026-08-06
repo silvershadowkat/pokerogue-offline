@@ -17,8 +17,15 @@ const liveSettingsPatch = readFileSync(
   new URL("../../patches/all/node/live-cheat-settings.js", import.meta.url),
   "utf8",
 );
+const shopAnimationsPatch = readFileSync(
+  new URL("../../patches/all/node/shop-animations.js", import.meta.url),
+  "utf8",
+);
 const logger = readFileSync(new URL("../src/logger.ts", import.meta.url), "utf8");
 const domShim = readFileSync(new URL("../src/dom-shim.ts", import.meta.url), "utf8");
+const buildGame = readFileSync(new URL("./build-game.mjs", import.meta.url), "utf8");
+const packageRelease = readFileSync(new URL("./package-release.mjs", import.meta.url), "utf8");
+const verifyRelease = readFileSync(new URL("./verify-release.mjs", import.meta.url), "utf8");
 
 test("the Switch runtime keeps a bounded freeze flight recorder and dual watchdogs", () => {
   assert.match(diagnostics, /const FLIGHT_RECORDER_INTERVAL_MS = 10_000;/);
@@ -131,6 +138,28 @@ test("nx.js canvas textures bypass the temporary OffscreenCanvas upload path", (
 test("generated runtime patches are idempotent by their installed markers", () => {
   assert.match(gamePatch, /if \(!main\.includes\("__silverShadowLateEndedGuardInstalled"\)\)/);
   assert.match(gamePatch, /if \(!main\.includes\("__silverShadowTypedCanvasUploadInstalled"\)\)/);
+});
+
+test("instant shop presentation reuses live cards off Switch without replacing Switch memory safeguards", () => {
+  assert.match(shopAnimationsPatch, /SHOP_ANIMATIONS_OVERRIDE === false && !\(globalThis as any\)\.Switch/);
+  assert.match(shopAnimationsPatch, /instantUiHandler\.canReuseRewardOptions\(instantModifierCount\)/);
+  assert.match(shopAnimationsPatch, /option\.showImmediately\(\)/);
+  assert.match(shopAnimationsPatch, /handleTutorial\(Tutorial\.SELECT_ITEM\)[\s\S]*return true;/);
+  assert.match(gamePatch, /switchRerollRecoveryThresholdMiB = 2450/);
+  assert.match(gamePatch, /switchRerollSafetyLimitMiB = 2600/);
+});
+
+test("the compiled game cache tracks the synchronized Daily archive", () => {
+  assert.match(buildGame, /"work\/generated\/daily-seeds\.json"/);
+});
+
+test("the Switch package keeps the built-in Daily archive loose and verified", () => {
+  assert.match(packageRelease, /const dailyArchiveName = "daily-seeds\.json"/);
+  assert.match(packageRelease, /copyFile\(compiledDailyArchive, path\.join\(gameRoot, dailyArchiveName\)\)/);
+  assert.match(packageRelease, /validateDailyArchive\(await readFile\(compiledDailyArchive, "utf8"\)\)/);
+  assert.match(packageRelease, /`game\/\$\{dailyArchiveName\}`/);
+  assert.match(verifyRelease, /"game\/daily-seeds\.json"/);
+  assert.match(verifyRelease, /validateDailyArchive\(await readFile\(path\.join\(gameRoot, "daily-seeds\.json"\), "utf8"\)\)/);
 });
 
 test("Switch UI setup yields measured progress frames from 45 through 99 percent", () => {

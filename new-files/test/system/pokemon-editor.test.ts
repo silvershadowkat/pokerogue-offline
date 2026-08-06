@@ -333,15 +333,17 @@ describe("Pokemon Editor menu integration", () => {
     expect(partyUiSource).toContain('"Editing is unavailable during battle.\\nFinish the battle first."');
   });
 
-  it("uses bounded ten-step number navigation and page-sized word navigation", () => {
+  it("uses bounded number navigation and arrow-safe page-sized list navigation", () => {
     const optionSource = readSource("ui", "handlers", "base-option-select-ui-handler.ts");
     const editorUiSource = readSource("system", "pokemon-editor", "pokemon-editor-ui.ts");
 
     expect(optionSource).toContain("const pageStepTarget");
+    expect(optionSource).toContain("const targetOptionIndex");
+    expect(optionSource).toContain("this.cursor = targetOptionIndex - this.scrollCursor");
     expect(optionSource).toContain("this.config?.wrapNavigation !== false");
     expect(editorUiSource).toContain("pageStep: 10");
     expect(editorUiSource).toContain("pageStepMaxIndex: maximum - minimum");
-    expect(editorUiSource).toContain("options.length > maxOptions ? maxOptions : undefined");
+    expect(editorUiSource).toContain("options.length > maxOptions ? Math.max(1, maxOptions - 2) : undefined");
   });
 
   it("keeps editor lists readable and exposes saved-build filtering", () => {

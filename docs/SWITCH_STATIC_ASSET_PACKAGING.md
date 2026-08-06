@@ -28,9 +28,10 @@ The largest logical groups were:
 | `switch-entry.js` | 1 | 8,850,425 |
 | `fonts/` | 7 | 7,235,742 |
 
-The complete old SD-card application layout had 34,116 files. The 2.0.0
-layout has 15 files and 734,931,641 bytes, including the required license and
-third-party-notice files. It removes filesystem-entry overhead and copy
+The complete old SD-card application layout had 34,116 files. The measured
+2.0.0 layout had 15 files and 734,931,641 bytes, including the required license
+and third-party-notice files. The loose built-in Daily archive now adds one
+small deployment file. The layout removes filesystem-entry overhead and copy
 latency rather than compressing already-compressed media.
 
 ## nx.js beta.6 RomFS finding
@@ -93,6 +94,8 @@ The loose deployment files are:
 - `game/index.html`;
 - `game/switch-entry.js`;
 - `game/asset-packs.json`;
+- `game/daily-seeds.json` (validated built-in fallback, deliberately outside
+  every `.sspack`);
 - `licenses/Phaser-MIT.txt`;
 - `licenses/PokeRogue-AGPL-3.0.txt`;
 - `licenses/THIRD-PARTY-NOTICES.txt`;

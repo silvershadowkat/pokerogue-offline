@@ -360,6 +360,78 @@ if (!optionSelectSource.includes("const pageStepTarget")) {
     "the bounded native option picker page target",
   );
 }
+if (!optionSelectSource.includes("const targetOptionIndex = this.unskippedIndices[fullCursor]")) {
+  const incrementalViewport = `    if (changed && this.config?.maxOptions && this.config.options.length > this.config.maxOptions) {
+      // If the fullCursor is the last possible value, we go to the bottom
+      if (fullCursor === this.unskippedIndices.length - 1) {
+        this.fullCursor = fullCursor;
+        this.cursor = this.config.maxOptions - (this.config.options.length - this.unskippedIndices[fullCursor]);
+        this.scrollCursor = this.config.options.length - this.config.maxOptions + 1;
+        // If the fullCursor is the first possible value, we go to the top
+      } else if (fullCursor === 0) {
+        this.fullCursor = fullCursor;
+        this.cursor = this.unskippedIndices[fullCursor];
+        this.scrollCursor = 0;
+      } else {
+        const isDown = fullCursor && fullCursor > this.fullCursor;
+
+        if (isDown) {
+          // If there are skipped options under the next selection, we show them
+          const jumpFromCurrent = this.unskippedIndices[fullCursor] - this.unskippedIndices[this.fullCursor];
+          const skipsFromNext = this.unskippedIndices[fullCursor + 1] - this.unskippedIndices[fullCursor] - 1;
+
+          if (this.cursor + jumpFromCurrent + skipsFromNext >= this.config.maxOptions - 1) {
+            this.fullCursor = fullCursor;
+            this.cursor = this.config.maxOptions - 2 - skipsFromNext;
+            this.scrollCursor = this.unskippedIndices[this.fullCursor] - this.cursor + 1;
+          } else {
+            this.fullCursor = fullCursor;
+            this.cursor = this.unskippedIndices[fullCursor] - this.scrollCursor + (this.scrollCursor ? 1 : 0);
+          }
+        } else {
+          const jumpFromPrevious = this.unskippedIndices[fullCursor] - this.unskippedIndices[fullCursor - 1];
+
+          if (this.cursor - jumpFromPrevious < 1) {
+            this.fullCursor = fullCursor;
+            this.cursor = 1;
+            this.scrollCursor = this.unskippedIndices[this.fullCursor] - this.cursor + 1;
+          } else {
+            this.fullCursor = fullCursor;
+            this.cursor = this.unskippedIndices[fullCursor] - this.scrollCursor + (this.scrollCursor ? 1 : 0);
+          }
+        }
+      }
+    } else {`;
+  const deterministicViewport = `    if (changed && this.config?.maxOptions && this.config.options.length > this.config.maxOptions) {
+      const maxOptions = this.config.maxOptions;
+      const optionCount = this.config.options.length;
+      const targetOptionIndex = this.unskippedIndices[fullCursor];
+      const currentDataCapacity =
+        !this.scrollCursor || this.scrollCursor + (maxOptions - 1) >= optionCount
+          ? maxOptions - 1
+          : maxOptions - 2;
+      const currentDataEnd = Math.min(optionCount, this.scrollCursor + currentDataCapacity);
+
+      if (fullCursor === 0) {
+        this.scrollCursor = 0;
+      } else if (fullCursor === this.unskippedIndices.length - 1) {
+        this.scrollCursor = Math.max(0, optionCount - (maxOptions - 1));
+      } else if (targetOptionIndex < this.scrollCursor || targetOptionIndex >= currentDataEnd) {
+        // Page jumps can move by several entries. Recompute the viewport from
+        // the target instead of treating the jump like one Up/Down press.
+        this.scrollCursor = Math.max(0, targetOptionIndex - (maxOptions - 2) + 1);
+      }
+
+      this.fullCursor = fullCursor;
+      this.cursor = targetOptionIndex - this.scrollCursor + (this.scrollCursor ? 1 : 0);
+    } else {`;
+  optionSelectSource = replaceRequired(
+    optionSelectSource,
+    incrementalViewport,
+    deterministicViewport,
+    "the option picker scrolling cursor viewport",
+  );
+}
 writeFile(optionSelectPath, optionSelectSource);
 
 const modifierPath = path.join("pokerogue-src", "src", "modifier", "modifier.ts");

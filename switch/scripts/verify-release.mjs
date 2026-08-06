@@ -17,6 +17,7 @@ import {
   validateAssetIndex,
   verifyPackFile,
 } from "./asset-pack-lib.mjs";
+import { validateDailyArchive } from "../../scripts/daily-run-archive-core.mjs";
 
 const releaseRoot = path.join(switchRoot, "release");
 const appRoot = path.join(releaseRoot, "switch", "SilverShadow-PokeRogue");
@@ -117,6 +118,7 @@ for (const file of manifest.requiredFiles) {
     throw new Error(`Hash mismatch for ${file.path}`);
   }
 }
+validateDailyArchive(await readFile(path.join(gameRoot, "daily-seeds.json"), "utf8"));
 
 const entryPath = safeGamePath(manifest.compiledEntryPoint);
 const entry = await readFile(entryPath, "utf8");
@@ -235,6 +237,7 @@ const expectedDeploymentFiles = [
   "SilverShadow-PokeRogue.nro",
   ...licenseFiles,
   "game/asset-packs.json",
+  "game/daily-seeds.json",
   "game/index.html",
   "game/manifest.json",
   ...assetIndex.packs.map(pack => `game/${pack.path}`),
