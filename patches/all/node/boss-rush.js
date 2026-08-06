@@ -39,6 +39,7 @@ function copyShared(relativePath, targetPath = relativePath) {
 }
 
 copyShared(path.join("src", "system", "daily-run", "boss-rush.ts"));
+copyShared(path.join("src", "system", "daily-run", "boss-rush-items.ts"));
 copyShared(
   path.join("test", "tests", "system", "daily-run", "boss-rush.test.ts"),
   path.join("test", "tests", "system", "daily-run", "boss-rush.test.ts"),
@@ -305,8 +306,8 @@ if (!victory.includes("getBossRushRewardSettings")) {
     'import { PokemonPhase } from "#phases/pokemon-phase";',
     `import { PokemonPhase } from "#phases/pokemon-phase";
 import {
-  BOSS_RUSH_CONFIG,
   getBossRushRewardSettings,
+  getBossRushVariantConfig,
   isBossRushMode,
 } from "#system/daily-run/boss-rush";`,
     "Boss Rush Victory imports",
@@ -348,7 +349,7 @@ import {
     `        if (!isBossRushMode() && (gameMode.hasRandomBiomes || globalScene.isNewBiome())) {
           globalScene.phaseManager.pushNew("SelectBiomePhase");
         }
-        if (isBossRushMode() && BOSS_RUSH_CONFIG.healBetweenBosses) {
+        if (isBossRushMode() && getBossRushVariantConfig().healBetweenBosses) {
           globalScene.phaseManager.pushNew("PartyHealPhase", false);
         }
 
@@ -383,16 +384,29 @@ import { BOSS_RUSH_CONFIG, isBossRushMode } from "#system/daily-run/boss-rush";`
     if (biomeId === BiomeId.END && battleType === BattleType.WILD) {`,
     "Boss Rush capture rule",
   );
+  command = replaceRequired(
+    command,
+    `  private handleRunCommand(): boolean {
+    const { currentBattle, arena } = globalScene;`,
+    `  private handleRunCommand(): boolean {
+    if (isBossRushMode() && !BOSS_RUSH_CONFIG.runningEnabled) {
+      this.queueShowText("battle:shadowBossRushNoRun");
+      return false;
+    }
+    const { currentBattle, arena } = globalScene;`,
+    "Boss Rush no-cost run prevention",
+  );
   write(commandPath, command);
 }
 
 const rewardPath = path.join(gameRoot, "src", "phases", "select-modifier-phase.ts");
 let reward = read(rewardPath);
-if (!reward.includes("logBossRushRewards")) {
+if (!reward.includes("getBossRushRewardOptions")) {
   reward = replaceRequired(
     reward,
     'import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/offline/claim-all-rewards-state";',
-    `import { isBossRushMode, logBossRushRewards } from "#system/daily-run/boss-rush";
+    `import { getBossRushRewardOptions, getBossRushShopOptions } from "#system/daily-run/boss-rush-items";
+import { isBossRushMode, logBossRushRewards } from "#system/daily-run/boss-rush";
 import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/offline/claim-all-rewards-state";`,
     "Boss Rush reward diagnostics import",
   );
@@ -409,7 +423,62 @@ import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/of
     const modifierSelectCallback`,
     "Boss Rush reward diagnostics",
   );
+  reward = replaceRequired(
+    reward,
+    `    const shopOptions = getPlayerShopModifierTypeOptionsForWave(
+      globalScene.currentBattle.waveIndex,
+      globalScene.getWaveMoneyAmount(1),
+    );`,
+    `    const shopOptions = isBossRushMode()
+      ? getBossRushShopOptions(
+        globalScene.getPlayerParty(),
+        globalScene.currentBattle.waveIndex,
+        globalScene.getWaveMoneyAmount(1),
+      )
+      : getPlayerShopModifierTypeOptionsForWave(
+        globalScene.currentBattle.waveIndex,
+        globalScene.getWaveMoneyAmount(1),
+      );`,
+    "Boss Rush shop purchase options",
+  );
+  reward = replaceRequired(
+    reward,
+    `  getModifierTypeOptions(modifierCount: number): ModifierTypeOption[] {
+    return getPlayerModifierTypeOptions(`,
+    `  getModifierTypeOptions(modifierCount: number): ModifierTypeOption[] {
+    if (isBossRushMode()) {
+      return getBossRushRewardOptions(globalScene.getPlayerParty());
+    }
+    return getPlayerModifierTypeOptions(`,
+    "Boss Rush useful reward generation",
+  );
   write(rewardPath, reward);
+}
+
+const modifierSelectPath = path.join(gameRoot, "src", "ui", "handlers", "modifier-select-ui-handler.ts");
+let modifierSelect = read(modifierSelectPath);
+if (!modifierSelect.includes("getBossRushShopOptions")) {
+  modifierSelect = replaceRequired(
+    modifierSelect,
+    'import { getPlayerShopModifierTypeOptionsForWave, TmModifierType } from "#modifiers/modifier-type";',
+    `import { getPlayerShopModifierTypeOptionsForWave, TmModifierType } from "#modifiers/modifier-type";
+import { getBossRushShopOptions } from "#system/daily-run/boss-rush-items";
+import { isBossRushMode } from "#system/daily-run/boss-rush";`,
+    "Boss Rush modifier shop UI imports",
+  );
+  modifierSelect = replaceRequired(
+    modifierSelect,
+    `    const shopTypeOptions = hasShop
+      ? getPlayerShopModifierTypeOptionsForWave(globalScene.currentBattle.waveIndex, baseShopCost.value)
+      : [];`,
+    `    const shopTypeOptions = hasShop
+      ? isBossRushMode()
+        ? getBossRushShopOptions(globalScene.getPlayerParty(), globalScene.currentBattle.waveIndex, baseShopCost.value)
+        : getPlayerShopModifierTypeOptionsForWave(globalScene.currentBattle.waveIndex, baseShopCost.value)
+      : [];`,
+    "Boss Rush five-item shop UI",
+  );
+  write(modifierSelectPath, modifierSelect);
 }
 
 for (const [file, marker] of [
@@ -424,4 +493,9 @@ for (const [file, marker] of [
   if (!read(file).includes(marker)) fail(`Missing Boss Rush marker ${marker} in ${file}.`);
 }
 
-console.log("SilverShadow Boss Rush Mode applied successfully.");
+const battleLocalePath = path.join(gameRoot, "locales", "en", "battle.json");
+const battleLocale = JSON.parse(read(battleLocalePath));
+battleLocale.shadowBossRushNoRun = "A mysterious force is preventing you from running!";
+write(battleLocalePath, `${JSON.stringify(battleLocale, null, 2)}\n`);
+
+console.log("SilverShadow Boss Rush applied successfully.");

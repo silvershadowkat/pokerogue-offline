@@ -1,4 +1,6 @@
+import type { BossRushManifest, BossRushVariant } from "./boss-rush";
 import type { DailyRunMetadata } from "./daily-run-types";
+import { normalizeSeededRunCompatibility, type SeededRunCompatibility } from "./seeded-run-compatibility";
 
 export const DAILY_SEED_HISTORY_STORAGE_KEY = "silvershadow_daily_seed_history_v1";
 export const MAX_DAILY_SEED_HISTORY_ENTRIES = 1000;
@@ -17,22 +19,27 @@ export interface DailySeedHistoryEntry {
   archiveDownloadedAt?: number | undefined;
   specialDailyConfig?: boolean | undefined;
   serializedDailyConfig?: string | undefined;
+  bossRushVariant?: BossRushVariant | undefined;
+  bossRushManifest?: BossRushManifest | undefined;
+  seededRunCompatibility: SeededRunCompatibility<BossRushManifest>;
 }
 
 function getStorage(): Storage | undefined {
   try {
     return globalThis.localStorage;
   } catch {
-    return undefined;
+    return;
   }
 }
 
 function isHistoryMode(value: unknown): value is DailySeedHistoryMode {
-  return value === "official"
+  return (
+    value === "official"
     || value === "offline"
     || value === "random"
     || value === "custom-text"
-    || value === "boss-rush";
+    || value === "boss-rush"
+  );
 }
 
 function validateEntry(value: unknown): DailySeedHistoryEntry | undefined {
@@ -49,29 +56,40 @@ function validateEntry(value: unknown): DailySeedHistoryEntry | undefined {
   ) {
     return;
   }
-  return {
+  const archiveSource: DailyRunMetadata["archiveSource"] =
+    candidate.archiveSource === "downloaded"
+    || candidate.archiveSource === "cached"
+    || candidate.archiveSource === "built-in"
+      ? candidate.archiveSource
+      : undefined;
+  const raw = {
     canonicalSeed: candidate.canonicalSeed,
     mode: candidate.mode,
     usedAt: Number(candidate.usedAt),
-    useCount: Number.isSafeInteger(candidate.useCount) && Number(candidate.useCount) > 0
-      ? Number(candidate.useCount)
-      : 1,
+    useCount:
+      Number.isSafeInteger(candidate.useCount) && Number(candidate.useCount) > 0 ? Number(candidate.useCount) : 1,
     selectedDate: typeof candidate.selectedDate === "string" ? candidate.selectedDate : undefined,
     friendlyTextSeed: typeof candidate.friendlyTextSeed === "string" ? candidate.friendlyTextSeed : undefined,
     algorithmVersion: typeof candidate.algorithmVersion === "string" ? candidate.algorithmVersion : undefined,
-    archiveSource:
-      candidate.archiveSource === "downloaded"
-        || candidate.archiveSource === "cached"
-        || candidate.archiveSource === "built-in"
-        ? candidate.archiveSource
-        : undefined,
+    archiveSource,
     archiveDownloadedAt: Number.isFinite(candidate.archiveDownloadedAt)
       ? Number(candidate.archiveDownloadedAt)
       : undefined,
     specialDailyConfig: typeof candidate.specialDailyConfig === "boolean" ? candidate.specialDailyConfig : undefined,
     serializedDailyConfig:
       typeof candidate.serializedDailyConfig === "string" ? candidate.serializedDailyConfig : undefined,
+    bossRushVariant: candidate.bossRushVariant === "hard" ? ("hard" as BossRushVariant) : undefined,
+    bossRushManifest:
+      typeof candidate.bossRushManifest === "object" && candidate.bossRushManifest != null
+        ? (candidate.bossRushManifest as unknown as BossRushManifest)
+        : undefined,
+    seededRunCompatibility:
+      typeof candidate.seededRunCompatibility === "object" && candidate.seededRunCompatibility != null
+        ? (candidate.seededRunCompatibility as unknown as SeededRunCompatibility<BossRushManifest>)
+        : undefined,
   };
+  const compatibility = normalizeSeededRunCompatibility<BossRushManifest>(raw);
+  return compatibility ? { ...raw, seededRunCompatibility: compatibility } : undefined;
 }
 
 export function readDailySeedHistory(): DailySeedHistoryEntry[] {
@@ -116,6 +134,9 @@ export function recordDailySeedHistory(metadata: DailyRunMetadata, usedAt = Date
     archiveDownloadedAt: metadata.archiveDownloadedAt,
     specialDailyConfig: metadata.specialDailyConfig,
     serializedDailyConfig: metadata.serializedDailyConfig,
+    bossRushVariant: metadata.bossRushVariant,
+    bossRushManifest: metadata.bossRushManifest,
+    seededRunCompatibility: normalizeSeededRunCompatibility<BossRushManifest>(metadata)!,
   };
   // This is a run history, not a favorites list. Replaying the same seed is a
   // new event and deliberately creates another timestamped row.

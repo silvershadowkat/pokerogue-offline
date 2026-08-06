@@ -6,33 +6,38 @@ import {
   serializeSpecialDailyEntry,
 } from "#system/daily-run/daily-run-archive";
 import {
-  canonicalSeedFromText,
-  createCustomTextSeed,
-  createOfflineDailySeed,
-  getUtcDateKey,
-} from "#system/daily-run/daily-run-seed-utils";
-import {
   DAILY_SEED_HISTORY_STORAGE_KEY,
   MAX_DAILY_SEED_HISTORY_ENTRIES,
   readDailySeedHistory,
   recordDailySeedHistory,
 } from "#system/daily-run/daily-run-history";
 import {
-  DAILY_SEED_KEYBOARD_ACTION_ROW,
   buildDailySeedKeyboardRows,
+  DAILY_SEED_KEYBOARD_ACTION_ROW,
   DAILY_SEED_KEYBOARD_COLUMNS,
   moveDailySeedKeyboardCursor,
   nextDailySeedKeyboardPage,
 } from "#system/daily-run/daily-run-keyboard-model";
 import {
+  canonicalSeedFromText,
+  createCustomTextSeed,
+  createOfflineDailySeed,
+  getUtcDateKey,
+} from "#system/daily-run/daily-run-seed-utils";
+import {
   clearDailyRunMetadata,
   commitPendingDailyRunLaunch,
   getCurrentDailyRunMetadata,
-  getPendingDailyRunLaunch,
+  getDailyRunDisplayMetadata,
   getDailyRunSaveLabels,
+  getPendingDailyRunLaunch,
   restoreDailyRunMetadata,
   setPendingDailyRunLaunch,
 } from "#system/daily-run/daily-run-types";
+import {
+  generateVersionedSeededContent,
+  normalizeSeededRunCompatibility,
+} from "#system/daily-run/seeded-run-compatibility";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const sampleEntries = [
@@ -93,10 +98,7 @@ describe("Daily Run archive", () => {
     ["malformed JSON", "{"],
     ["unsupported schema", { ...archive(), schemaVersion: 2 }],
     ["invalid real date", archive([{ date: "2026-02-30", format: "seed", seed: "x" }])],
-    [
-      "duplicate date",
-      { schemaVersion: 1, entries: [sampleEntries[0], { ...sampleEntries[0], seed: "different" }] },
-    ],
+    ["duplicate date", { schemaVersion: 1, entries: [sampleEntries[0], { ...sampleEntries[0], seed: "different" }] }],
     ["unknown format", archive([{ date: "2026-07-10", format: "other", seed: "x" }])],
     ["empty seed", archive([{ date: "2026-07-10", format: "seed", seed: "" }])],
     ["inconsistent count", { ...archive(), entryCount: 99 }],
@@ -141,7 +143,10 @@ describe("Daily Run archive", () => {
   it("keeps a valid cache when a remote response is invalid", async () => {
     const validCached = JSON.stringify({ downloadedAt: 1_700_000_000_000, archive: archive() });
     const storage = installStorage({ [DAILY_ARCHIVE_STORAGE_KEYS.current]: validCached });
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>error</html>", { headers: { "content-type": "text/html" } })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("<html>error</html>", { headers: { "content-type": "text/html" } })),
+    );
     await expect(loadOfficialDailyArchive()).resolves.toMatchObject({ source: "cached" });
     expect(storage.get(DAILY_ARCHIVE_STORAGE_KEYS.current)).toBe(validCached);
   });
@@ -204,7 +209,6 @@ describe("Daily Run seed algorithms", () => {
     expect(createCustomTextSeed("Philip's Run 123!").friendlyText).toBe("Philip's Run 123!");
     expect(createCustomTextSeed("  ABCDEFG  ")).toEqual(createCustomTextSeed("ABCDEFG"));
   });
-
 });
 
 describe("Daily Run Text Seed keyboard", () => {
@@ -222,8 +226,16 @@ describe("Daily Run Text Seed keyboard", () => {
     for (const page of ["lowercase", "uppercase", "numbersSymbols"] as const) {
       const rows = buildDailySeedKeyboardRows(page);
       expect(rows).toHaveLength(DAILY_SEED_KEYBOARD_ACTION_ROW + 1);
-      expect(rows[DAILY_SEED_KEYBOARD_ACTION_ROW].map(key => key.kind === "action" ? key.action : null)).toEqual([
-        "page", null, "backspace", null, "clear", null, null, null, "confirm",
+      expect(rows[DAILY_SEED_KEYBOARD_ACTION_ROW].map(key => (key.kind === "action" ? key.action : null))).toEqual([
+        "page",
+        null,
+        "backspace",
+        null,
+        "clear",
+        null,
+        null,
+        null,
+        "confirm",
       ]);
     }
   });
@@ -248,14 +260,17 @@ describe("Previous Seed history", () => {
 
   it("stores every seeded Daily mode as newest-first run events", () => {
     const storage = installStorage();
-    recordDailySeedHistory({
-      mode: "official",
-      canonicalSeed: "official",
-      selectedDate: "2026-08-05",
-      archiveSource: "cached",
-      specialDailyConfig: true,
-      serializedDailyConfig: '{"seed":"official"}',
-    }, 50);
+    recordDailySeedHistory(
+      {
+        mode: "official",
+        canonicalSeed: "official",
+        selectedDate: "2026-08-05",
+        archiveSource: "cached",
+        specialDailyConfig: true,
+        serializedDailyConfig: '{"seed":"official"}',
+      },
+      50,
+    );
     recordDailySeedHistory({ mode: "previous", canonicalSeed: "previous" });
     recordDailySeedHistory({ mode: "random", canonicalSeed: "random" }, 100);
     recordDailySeedHistory({ mode: "offline", canonicalSeed: "offline", selectedDate: "2026-08-05" }, 200);
@@ -274,6 +289,10 @@ describe("Previous Seed history", () => {
       specialDailyConfig: true,
       serializedDailyConfig: '{"seed":"official"}',
     });
+    for (const entry of readDailySeedHistory()) {
+      expect(entry.seededRunCompatibility.generatorVersion).toBeTruthy();
+      expect(entry.seededRunCompatibility.generatorId).toBeTruthy();
+    }
   });
 
   it("retains repeated runs as distinct events and caps newest-first history at 1,000", () => {
@@ -305,13 +324,57 @@ describe("Daily Run save labels", () => {
       long: "Random Run",
     });
     expect(getDailyRunSaveLabels({ mode: "custom-text", canonicalSeed: "d" })).toEqual({
-      short: "Text",
-      long: "Text Run",
+      short: "Custom Run",
+      long: "Custom Run",
     });
     expect(getDailyRunSaveLabels({ mode: "boss-rush", canonicalSeed: "e" })).toEqual({
       short: "Boss Rush",
-      long: "Boss Rush Mode",
+      long: "Boss Rush",
     });
+    expect(
+      getDailyRunDisplayMetadata({
+        mode: "boss-rush",
+        canonicalSeed: "hard",
+        bossRushVariant: "hard" as never,
+      }).history,
+    ).toBe("Boss Rush (H)");
+  });
+});
+
+describe("Seeded run generator compatibility", () => {
+  it("routes a v1 entry through v1 after v2 is introduced", () => {
+    const compatibility = normalizeSeededRunCompatibility({ mode: "random", algorithmVersion: "v1" })!;
+    expect(
+      generateVersionedSeededContent("same", compatibility, {
+        v1: seed => `${seed}:old`,
+        v2: seed => `${seed}:new`,
+      }),
+    ).toBe("same:old");
+  });
+
+  it.each([
+    ["offline", "offline-daily", "SilverShadow-Daily-v1"],
+    ["random", "random-daily", "SilverShadow-Random50-v1"],
+    ["custom-text", "custom-text-daily", "SilverShadow-CustomSeed-v1"],
+    ["boss-rush", "boss-rush", "SilverShadow-BossRush-v1"],
+  ])("migrates an unversioned %s entry", (mode, generatorId, generatorVersion) => {
+    expect(normalizeSeededRunCompatibility({ mode })).toMatchObject({
+      generatorId,
+      generatorVersion,
+      variant: mode === "boss-rush" ? "normal" : "standard",
+    });
+  });
+
+  it("preserves a Boss Rush variant and compact generated snapshot", () => {
+    const snapshot = { version: "v2", variant: "hard" };
+    expect(
+      normalizeSeededRunCompatibility({
+        mode: "boss-rush",
+        algorithmVersion: "v2",
+        bossRushVariant: "hard",
+        bossRushManifest: snapshot,
+      }),
+    ).toMatchObject({ generatorVersion: "v2", variant: "hard", snapshot });
   });
 });
 
@@ -324,10 +387,10 @@ describe("Daily Run pending launch and resume metadata", () => {
       metadata: { mode: "random" as const, canonicalSeed: "k5exW8qrITeVWzIKS+3FFg==" },
     };
     setPendingDailyRunLaunch(request);
-    expect(getPendingDailyRunLaunch()).toEqual(request);
-    expect(getPendingDailyRunLaunch()).toEqual(request);
-    expect(commitPendingDailyRunLaunch()).toEqual(request);
-    expect(getCurrentDailyRunMetadata()).toEqual(request.metadata);
+    expect(getPendingDailyRunLaunch()).toMatchObject(request);
+    expect(getPendingDailyRunLaunch()).toMatchObject(request);
+    expect(commitPendingDailyRunLaunch()).toMatchObject(request);
+    expect(getCurrentDailyRunMetadata()).toMatchObject(request.metadata);
   });
 
   it("restores historical metadata instead of regenerating from current time", () => {
@@ -338,6 +401,6 @@ describe("Daily Run pending launch and resume metadata", () => {
       algorithmVersion: "SilverShadow-Daily-v1",
     };
     restoreDailyRunMetadata(metadata);
-    expect(getCurrentDailyRunMetadata()).toEqual(metadata);
+    expect(getCurrentDailyRunMetadata()).toMatchObject(metadata);
   });
 });

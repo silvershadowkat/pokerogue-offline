@@ -45,6 +45,7 @@ for (const name of [
   "daily-run-seed-utils.ts",
   "daily-run-archive.ts",
   "daily-run-history.ts",
+  "seeded-run-compatibility.ts",
   "daily-run-keyboard-model.ts",
   "daily-run-menu.ts",
 ]) {
@@ -473,14 +474,82 @@ if (!saveSlot.includes("getDailyRunSaveLabels")) {
   write(saveSlotPath, saveSlot);
 }
 
+const gameOverPath = path.join(gameRoot, "src", "phases", "game-over-phase.ts");
+let gameOver = read(gameOverPath);
+if (!gameOver.includes("getCurrentDailyRunMetadata")) {
+  gameOver = replaceRequired(
+    gameOver,
+    'import { ArenaData } from "#system/arena-data";',
+    `import { ArenaData } from "#system/arena-data";
+import { getCurrentDailyRunMetadata } from "#system/daily-run/daily-run-types";`,
+    "run history Daily metadata import",
+  );
+  gameOver = replaceRequired(
+    gameOver,
+    `      playerFaints: globalScene.arena.playerFaints,
+    } as SessionSaveData;`,
+    `      playerFaints: globalScene.arena.playerFaints,
+      dailyRunMetadata: getCurrentDailyRunMetadata(),
+    } as SessionSaveData;`,
+    "run history Daily metadata persistence",
+  );
+  write(gameOverPath, gameOver);
+}
+
+const runHistoryPath = path.join(gameRoot, "src", "ui", "handlers", "run-history-ui-handler.ts");
+let runHistory = read(runHistoryPath);
+if (!runHistory.includes("getDailyRunDisplayMetadata")) {
+  runHistory = replaceRequired(
+    runHistory,
+    'import type { PokemonData } from "#system/pokemon-data";',
+    `import type { PokemonData } from "#system/pokemon-data";
+import { getDailyRunDisplayMetadata } from "#system/daily-run/daily-run-types";`,
+    "run history mode metadata import",
+  );
+  runHistory = replaceRequired(
+    runHistory,
+    `      case GameModes.DAILY:
+        mode = i18next.t("gameMode:dailyRun");
+        break;`,
+    `      case GameModes.DAILY:
+        mode = getDailyRunDisplayMetadata(data.dailyRunMetadata).history;
+        break;`,
+    "run history custom Daily name",
+  );
+  write(runHistoryPath, runHistory);
+}
+
+const runInfoPath = path.join(gameRoot, "src", "ui", "handlers", "run-info-ui-handler.ts");
+let runInfo = read(runInfoPath);
+if (!runInfo.includes("getDailyRunDisplayMetadata")) {
+  runInfo = replaceRequired(
+    runInfo,
+    'import type { PokemonData } from "#system/pokemon-data";',
+    `import type { PokemonData } from "#system/pokemon-data";
+import { getDailyRunDisplayMetadata } from "#system/daily-run/daily-run-types";`,
+    "run info mode metadata import",
+  );
+  runInfo = replaceRequired(
+    runInfo,
+    `      case GameModes.DAILY:
+        modeText.appendText(\`\${i18next.t("gameMode:dailyRun")}\`, false);
+        break;`,
+    `      case GameModes.DAILY:
+        modeText.appendText(getDailyRunDisplayMetadata(this.runInfo.dailyRunMetadata).history, false);
+        break;`,
+    "run info custom Daily name",
+  );
+  write(runInfoPath, runInfo);
+}
+
 const localePath = path.join(gameRoot, "locales", "en", "menu.json");
 const locale = JSON.parse(read(localePath));
 Object.assign(locale, {
   shadowDailyOfficial: "Official Daily Run",
   shadowDailyOffline: "Offline Daily Run",
   shadowDailyRandom: "Random 50-Wave Run",
-  shadowDailyBossRush: "Boss Rush Mode",
-  shadowDailyCustom: "Custom 50-Wave Run",
+  shadowDailyBossRush: "Boss Rush",
+  shadowDailyCustom: "Custom Run",
   shadowDailyOfficialDescription: "Download and browse official seed dates. Uses a cached or built-in archive if download fails.",
   shadowDailyOfflineDescription: "Play today's shared offline run. The same game version and UTC date use the same seed.",
   shadowDailyRandomDescription: "Generate a new random 50-wave Daily Run. A different seed is created each time.",
@@ -493,6 +562,12 @@ Object.assign(locale, {
   shadowDailyOfflineConfirm: "Start Offline Daily Run for {{date}} (UTC)?",
   shadowDailyRandomConfirm: "Generate a new random 50-wave Daily Run?",
   shadowDailyBossRushConfirm: "Generate a new seeded 10-boss run?",
+  shadowDailyBossRushNormal: "Normal",
+  shadowDailyBossRushHard: "Hard",
+  shadowDailyBossRushHardConfirm: "Generate a new seeded 10-boss Hard run with no between-boss healing?",
+  shadowDailyBossRushVariantHelp: "Choose whether the party is restored between bosses.",
+  shadowDailyBossRushNormalDescription: "Fully restore HP, PP, fainted Pokemon, and major status before each new boss.",
+  shadowDailyBossRushHardDescription: "Carry HP, PP, fainting, and major status into the next boss.",
   shadowDailyGeneratedSeed: "Generated: {{seed}}\nStart this run?",
   shadowDailyLoadingArchive: "Loading the official Daily Run archive...",
   shadowDailySpecialIndicator: "[Special]",
@@ -514,7 +589,7 @@ Object.assign(locale, {
   shadowDailyPreviousOfflineDetail: "Offline Daily Run · UTC {{date}}",
   shadowDailyPreviousTextDetail: "Text Seed · {{text}}",
   shadowDailyPreviousRandomDetail: "Random 50-Wave Run",
-  shadowDailyPreviousBossRushDetail: "Boss Rush Mode",
+  shadowDailyPreviousBossRushDetail: "Boss Rush",
   shadowDailyHistoryModeoffline: "Offline",
   shadowDailyHistoryModeofficial: "Official",
   shadowDailyHistoryModerandom: "Random",

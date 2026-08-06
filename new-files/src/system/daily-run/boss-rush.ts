@@ -16,8 +16,15 @@ import type { CustomModifierSettings } from "#modifiers/modifier-type";
 import type { StarterMoveset } from "#types/save-data";
 import { randSeedInt, randSeedItem } from "#utils/common";
 import { getCurrentDailyRunMetadata } from "./daily-run-types";
+import { generateVersionedSeededContent, type SeededRunCompatibility } from "./seeded-run-compatibility";
 
-export const BOSS_RUSH_ALGORITHM_VERSION = "SilverShadow-BossRush-v1";
+export enum BossRushVariant {
+  NORMAL = "normal",
+  HARD = "hard",
+}
+
+export const BOSS_RUSH_V1_ALGORITHM_VERSION = "SilverShadow-BossRush-v1";
+export const BOSS_RUSH_ALGORITHM_VERSION = "SilverShadow-BossRush-v2";
 
 export const BOSS_RUSH_CONFIG = Object.freeze({
   startingPartySize: 3,
@@ -26,9 +33,10 @@ export const BOSS_RUSH_CONFIG = Object.freeze({
   bossCount: 10,
   startingMoney: 10000,
   rewardOptionCount: 5,
-  minimumRewardTier: ModifierTier.ULTRA,
-  healBetweenBosses: true,
+  shopOptionCount: 5,
+  minimumRewardTier: ModifierTier.GREAT,
   bossesCatchable: false,
+  runningEnabled: false,
   /** Native health segments equal shield breakpoints plus one. */
   shieldBreakpoints: [1, 1, 1, 2, 2, 2, 3, 3, 3, 4] as const,
   enemyModifierCounts: [0, 0, 0, 1, 1, 1, 2, 2, 2, 3] as const,
@@ -36,12 +44,65 @@ export const BOSS_RUSH_CONFIG = Object.freeze({
   finalBossHpMultiplier: 1,
   preventDuplicateBaseSpecies: true,
   weakMovePowerThreshold: 60,
-  minimumStarterBaseTotal: 450,
   minimumMiddleSingleStageBaseTotal: 450,
   minimumHighBossBaseTotal: 500,
   highIvs: 31,
   generationOffset: 0x42525348,
 });
+
+export interface BossRushVariantConfig {
+  variant: BossRushVariant;
+  displayName: "Boss Rush" | "Boss Rush (H)";
+  compactDisplayName: "Boss Rush" | "Boss Rush (H)";
+  generatorVersion: string;
+  healBetweenBosses: boolean;
+  catchingEnabled: false;
+  runningEnabled: false;
+  rewardMinimumTier: ModifierTier.GREAT;
+  rewardOptionCount: 5;
+  shopOptionCount: 5;
+  startingMoney: 10000;
+  shieldBreakpoints: typeof BOSS_RUSH_CONFIG.shieldBreakpoints;
+}
+
+export const BOSS_RUSH_VARIANTS: Readonly<Record<BossRushVariant, BossRushVariantConfig>> = Object.freeze({
+  [BossRushVariant.NORMAL]: Object.freeze({
+    variant: BossRushVariant.NORMAL,
+    displayName: "Boss Rush",
+    compactDisplayName: "Boss Rush",
+    generatorVersion: BOSS_RUSH_ALGORITHM_VERSION,
+    healBetweenBosses: true,
+    catchingEnabled: false,
+    runningEnabled: false,
+    rewardMinimumTier: ModifierTier.GREAT,
+    rewardOptionCount: 5,
+    shopOptionCount: 5,
+    startingMoney: 10000,
+    shieldBreakpoints: BOSS_RUSH_CONFIG.shieldBreakpoints,
+  }),
+  [BossRushVariant.HARD]: Object.freeze({
+    variant: BossRushVariant.HARD,
+    displayName: "Boss Rush (H)",
+    compactDisplayName: "Boss Rush (H)",
+    generatorVersion: BOSS_RUSH_ALGORITHM_VERSION,
+    healBetweenBosses: false,
+    catchingEnabled: false,
+    runningEnabled: false,
+    rewardMinimumTier: ModifierTier.GREAT,
+    rewardOptionCount: 5,
+    shopOptionCount: 5,
+    startingMoney: 10000,
+    shieldBreakpoints: BOSS_RUSH_CONFIG.shieldBreakpoints,
+  }),
+});
+
+export function getBossRushVariant(): BossRushVariant {
+  return getCurrentDailyRunMetadata()?.bossRushVariant ?? BossRushVariant.NORMAL;
+}
+
+export function getBossRushVariantConfig(variant = getBossRushVariant()): BossRushVariantConfig {
+  return BOSS_RUSH_VARIANTS[variant] ?? BOSS_RUSH_VARIANTS[BossRushVariant.NORMAL];
+}
 
 export type BossRushEligibilityCategory =
   | "can-evolve"
@@ -73,7 +134,8 @@ export interface BossRushBossConfig extends BossRushPokemonConfig {
 }
 
 export interface BossRushManifest {
-  version: typeof BOSS_RUSH_ALGORITHM_VERSION;
+  version: string;
+  variant: BossRushVariant;
   seed: string;
   starters: BossRushPokemonConfig[];
   bosses: BossRushBossConfig[];
@@ -103,7 +165,8 @@ const GIGANTAMAX_FORM_KEYS = new Set<string>([
   SpeciesFormKey.GIGANTAMAX_RAPID,
 ]);
 
-const GENERATION_EXCLUSIONS = new Set<SpeciesId>([
+/** Kept only for exact replay of manifests created by the original generator. */
+const V1_GENERATION_EXCLUSIONS = new Set<SpeciesId>([
   SpeciesId.DITTO,
   SpeciesId.SMEARGLE,
   SpeciesId.SHEDINJA,
@@ -220,22 +283,37 @@ function isOrdinarySpecies(species: PokemonSpecies): boolean {
   return !isLegendary(species) && !isMythical(species) && !isParadox(species);
 }
 
-function availableSpecies(): PokemonSpecies[] {
+function availableSpecies(version: string): PokemonSpecies[] {
   return speciesDataRegistry
     .getAllSpecies()
-    .filter(species => !GENERATION_EXCLUSIONS.has(species.speciesId) && !species.isTrainerForbidden());
+    .filter(
+      species =>
+        !species.isTrainerForbidden()
+        && (version !== BOSS_RUSH_V1_ALGORITHM_VERSION || !V1_GENERATION_EXCLUSIONS.has(species.speciesId)),
+    );
 }
 
-function starterPool(speciesList: PokemonSpecies[]): FormCandidate[] {
+function starterPool(speciesList: PokemonSpecies[], version: string): FormCandidate[] {
   return speciesList.flatMap(species => {
     const transformed = transformationCandidates(species).filter(
-      candidate => candidate.form.baseTotal >= BOSS_RUSH_CONFIG.minimumStarterBaseTotal,
+      candidate => version !== BOSS_RUSH_V1_ALGORITHM_VERSION || candidate.form.baseTotal >= 450,
     );
     const eligibleBase = !canStillEvolve(species) || isLegendary(species) || isMythical(species) || isParadox(species);
     const base = baseCandidate(species);
-    const strongEnough = base.form.baseTotal >= BOSS_RUSH_CONFIG.minimumStarterBaseTotal;
+    const strongEnough = version !== BOSS_RUSH_V1_ALGORITHM_VERSION || base.form.baseTotal >= 450;
     return [...(eligibleBase && strongEnough ? [base] : []), ...transformed];
   });
+}
+
+export function isBossRushStarterEligible(
+  speciesId: SpeciesId,
+  formIndex = 0,
+  version = BOSS_RUSH_ALGORITHM_VERSION,
+): boolean {
+  const species = speciesDataRegistry.getSpecies(speciesId);
+  return starterPool(availableSpecies(version), version).some(
+    candidate => candidate.species.speciesId === species.speciesId && candidate.formIndex === formIndex,
+  );
 }
 
 function earlyBossPool(speciesList: PokemonSpecies[]): FormCandidate[] {
@@ -338,7 +416,22 @@ export function getBossRushLegalMovePool(speciesId: SpeciesId, formIndex: number
     .filter(([level]) => level <= BOSS_RUSH_CONFIG.startingLevel)
     .map(([, moveId]) => moveId);
   const tms = species.getTms(formIndex);
-  return [...new Set([...levelMoves, ...tms])].filter(moveId => !!allMoves[moveId] && !MOVE_EXCLUSIONS.has(moveId));
+  const supported = [...new Set([...levelMoves, ...tms])].filter(
+    moveId => !!allMoves[moveId] && (!MOVE_EXCLUSIONS.has(moveId) || speciesId === SpeciesId.SMEARGLE),
+  );
+  // These species intentionally retain their native unusual mechanics. The
+  // explicit fallbacks guard against incomplete form learnset data without
+  // inventing moves or abilities.
+  if (speciesId === SpeciesId.DITTO) {
+    return [MoveId.TRANSFORM];
+  }
+  if (speciesId === SpeciesId.SMEARGLE && supported.includes(MoveId.SKETCH)) {
+    return [MoveId.SKETCH];
+  }
+  if (speciesId === SpeciesId.UNOWN && supported.includes(MoveId.HIDDEN_POWER)) {
+    return [MoveId.HIDDEN_POWER];
+  }
+  return supported;
 }
 
 function removeWeakFiller(movePool: MoveId[]): MoveId[] {
@@ -430,6 +523,33 @@ function hasUnusedDamageType(damaging: Array<{ moveId: MoveId }>, selected: Move
   );
 }
 
+function addDiverseMoves(
+  scored: Array<{ moveId: MoveId }>,
+  damaging: Array<{ moveId: MoveId }>,
+  selected: MoveId[],
+  add: (entry?: { moveId: MoveId }) => void,
+): void {
+  let statusCount = 0;
+  for (const entry of scored) {
+    if (selected.length >= 4) {
+      break;
+    }
+    const move = allMoves[entry.moveId];
+    if (move.category === MoveCategory.STATUS && statusCount >= 1) {
+      continue;
+    }
+    if (isDamagingMove(entry.moveId)) {
+      const duplicateType = selected.some(id => isDamagingMove(id) && allMoves[id].type === move.type);
+      if (duplicateType && hasUnusedDamageType(damaging, selected)) {
+        continue;
+      }
+    } else {
+      statusCount++;
+    }
+    add(entry);
+  }
+}
+
 function buildStrongMoveset(candidate: FormCandidate): StarterMoveset {
   const legalPool = getBossRushLegalMovePool(candidate.species.speciesId, candidate.formIndex);
   const preferredPool = removeWeakFiller(legalPool);
@@ -448,27 +568,7 @@ function buildStrongMoveset(candidate: FormCandidate): StarterMoveset {
   const types = new Set<number>([candidate.form.type1, candidate.form.type2].filter(type => type != null));
   add(damaging.find(entry => types.has(allMoves[entry.moveId].type)));
   add(damaging.find(entry => !types.has(allMoves[entry.moveId].type)) ?? damaging[1]);
-
-  let statusCount = 0;
-  for (const entry of scored) {
-    if (selected.length >= 4) {
-      break;
-    }
-    const move = allMoves[entry.moveId];
-    if (move.category === MoveCategory.STATUS && statusCount >= 1) {
-      continue;
-    }
-    if (isDamagingMove(entry.moveId)) {
-      const duplicateType = selected.some(id => isDamagingMove(id) && allMoves[id].type === move.type);
-      const unusedDamageTypeExists = hasUnusedDamageType(damaging, selected);
-      if (duplicateType && unusedDamageTypeExists) {
-        continue;
-      }
-    } else {
-      statusCount++;
-    }
-    add(entry);
-  }
+  addDiverseMoves(scored, damaging, selected, add);
   for (const entry of scored) {
     add(entry);
   }
@@ -487,9 +587,9 @@ function buildPokemonConfig(candidate: FormCandidate): BossRushPokemonConfig {
   };
 }
 
-function buildManifest(seed: string): BossRushManifest {
-  const speciesList = availableSpecies();
-  const starterCandidates = starterPool(speciesList);
+function buildManifest(seed: string, version: string, variant: BossRushVariant): BossRushManifest {
+  const speciesList = availableSpecies(version);
+  const starterCandidates = starterPool(speciesList, version);
   const earlyCandidates = earlyBossPool(speciesList);
   const middleCandidates = middleBossPool(speciesList);
   const highCandidates = highBossPool(speciesList);
@@ -511,23 +611,42 @@ function buildManifest(seed: string): BossRushManifest {
       finalBoss: index === BOSS_RUSH_CONFIG.bossCount - 1,
     } satisfies BossRushBossConfig;
   });
-  return { version: BOSS_RUSH_ALGORITHM_VERSION, seed, starters, bosses };
+  return { version, variant, seed, starters, bosses };
 }
 
-export function generateBossRushManifest(seed: string): BossRushManifest {
+function generateBossRushManifestVersion(seed: string, version: string, variant: BossRushVariant): BossRushManifest {
   let manifest: BossRushManifest | undefined;
   globalScene.executeWithSeedOffset(
     () => {
-      manifest = buildManifest(seed);
+      manifest = buildManifest(seed, version, variant);
     },
     BOSS_RUSH_CONFIG.generationOffset,
-    seed,
+    version === BOSS_RUSH_V1_ALGORITHM_VERSION ? seed : `${seed}|${variant}`,
   );
   if (!manifest) {
     throw new Error("Boss Rush generation did not produce a manifest.");
   }
   logBossRushManifest(manifest);
   return manifest;
+}
+
+export function generateBossRushManifest(
+  seed: string,
+  variant = BossRushVariant.NORMAL,
+  version = BOSS_RUSH_ALGORITHM_VERSION,
+): BossRushManifest {
+  const compatibility: SeededRunCompatibility = {
+    schemaVersion: 1,
+    generatorId: "boss-rush",
+    generatorVersion: version,
+    variant,
+  };
+  return generateVersionedSeededContent(seed, compatibility, {
+    [BOSS_RUSH_V1_ALGORITHM_VERSION]: canonicalSeed =>
+      generateBossRushManifestVersion(canonicalSeed, BOSS_RUSH_V1_ALGORITHM_VERSION, BossRushVariant.NORMAL),
+    [BOSS_RUSH_ALGORITHM_VERSION]: (canonicalSeed, saved) =>
+      generateBossRushManifestVersion(canonicalSeed, BOSS_RUSH_ALGORITHM_VERSION, saved.variant as BossRushVariant),
+  });
 }
 
 export function cloneBossRushManifest(manifest?: BossRushManifest): BossRushManifest | undefined {
@@ -554,7 +673,14 @@ function currentManifest(): BossRushManifest | undefined {
   if (metadata?.mode !== "boss-rush") {
     return;
   }
-  return metadata.bossRushManifest ?? generateBossRushManifest(metadata.canonicalSeed);
+  return (
+    metadata.bossRushManifest
+    ?? generateBossRushManifest(
+      metadata.canonicalSeed,
+      metadata.bossRushVariant ?? BossRushVariant.NORMAL,
+      metadata.seededRunCompatibility?.generatorVersion ?? metadata.algorithmVersion ?? BOSS_RUSH_V1_ALGORITHM_VERSION,
+    )
+  );
 }
 
 export function getBossRushStarterConfigs(): BossRushPokemonConfig[] {
@@ -568,8 +694,9 @@ export function getBossRushBossConfig(
 }
 
 export function getBossRushRewardSettings(): CustomModifierSettings {
+  const config = getBossRushVariantConfig();
   return {
-    guaranteedModifierTiers: new Array(BOSS_RUSH_CONFIG.rewardOptionCount).fill(BOSS_RUSH_CONFIG.minimumRewardTier),
+    guaranteedModifierTiers: new Array(config.rewardOptionCount).fill(config.rewardMinimumTier),
     fillRemaining: false,
     allowLuckUpgrades: true,
   };
@@ -586,6 +713,18 @@ export function applyBossRushEnemyConfig(pokemon: EnemyPokemon): void {
   pokemon.setNature(config.nature);
   pokemon.tryPopulateMoveset(config.moveset, true);
   pokemon.setBoss(true, config.healthSegments);
+  if (isDev && !IS_TEST) {
+    console.info(
+      "Boss Rush player held modifiers",
+      globalScene
+        .findModifiers(modifier => "pokemonId" in modifier)
+        .map(modifier => ({
+          modifier: modifier.type.id,
+          pokemonId: "pokemonId" in modifier ? modifier.pokemonId : undefined,
+          stackCount: modifier.stackCount,
+        })),
+    );
+  }
 }
 
 export function logBossRushRewards(tiers: readonly ModifierTier[]): void {

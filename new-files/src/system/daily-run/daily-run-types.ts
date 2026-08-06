@@ -1,5 +1,10 @@
-import type { BossRushManifest } from "./boss-rush";
+import type { BossRushManifest, BossRushVariant } from "./boss-rush";
 import { recordDailySeedHistory } from "./daily-run-history";
+import {
+  cloneSeededRunCompatibility,
+  normalizeSeededRunCompatibility,
+  type SeededRunCompatibility,
+} from "./seeded-run-compatibility";
 
 export type DailyRunLaunchMode =
   | "official"
@@ -26,6 +31,10 @@ export interface DailyRunMetadata {
   archiveDownloadedAt?: number | undefined;
   /** Fully generated content freezes future Boss Rush encounters across save/resume. */
   bossRushManifest?: BossRushManifest | undefined;
+  /** Explicit variant prevents Normal and Hard saves from ever being confused. */
+  bossRushVariant?: BossRushVariant | undefined;
+  /** Generic reconstruction contract for every seeded mode. */
+  seededRunCompatibility?: SeededRunCompatibility<BossRushManifest> | undefined;
 }
 
 export interface DailyRunLaunchRequest {
@@ -39,22 +48,49 @@ export interface DailyRunSaveLabels {
   long: string;
 }
 
-/** Compact names used by the two title rows in the save-slot browser. */
-export function getDailyRunSaveLabels(metadata?: DailyRunMetadata): DailyRunSaveLabels {
+export interface DailyRunDisplayMetadata extends DailyRunSaveLabels {
+  compact: string;
+  history: string;
+}
+
+/** One naming source for saves, resume, Previous Seeds, and completion history. */
+export function getDailyRunDisplayMetadata(metadata?: DailyRunMetadata): DailyRunDisplayMetadata {
   switch (metadata?.mode) {
     case "official":
-      return { short: "Official", long: "Official Daily Run" };
+      return {
+        short: "Official",
+        long: "Official Daily Run",
+        compact: "Official Daily Run",
+        history: "Official Daily Run",
+      };
     case "offline":
-      return { short: "Offline", long: "Offline Daily Run" };
+      return {
+        short: "Offline",
+        long: "Offline Daily Run",
+        compact: "Offline Daily Run",
+        history: "Offline Daily Run",
+      };
     case "random":
-      return { short: "Random", long: "Random Run" };
-    case "boss-rush":
-      return { short: "Boss Rush", long: "Boss Rush Mode" };
+      return { short: "Random", long: "Random Run", compact: "Random Run", history: "Random Run" };
+    case "boss-rush": {
+      const hard =
+        metadata.bossRushVariant === "hard"
+        || metadata.seededRunCompatibility?.variant === "hard"
+        || metadata.bossRushManifest?.variant === "hard";
+      const name = hard ? "Boss Rush (H)" : "Boss Rush";
+      return { short: name, long: name, compact: name, history: name };
+    }
     case "custom-text":
-      return { short: "Text", long: "Text Run" };
+      return { short: "Custom Run", long: "Custom Run", compact: "Custom Run", history: "Custom Run" };
     default:
-      return { short: "Daily Run", long: "Daily Run" };
+      return { short: "Daily Run", long: "Daily Run", compact: "Daily Run", history: "Daily Run" };
   }
+}
+
+/** Compact names used by the two title rows in the save-slot browser. */
+export function getDailyRunSaveLabels(metadata?: DailyRunMetadata): DailyRunSaveLabels {
+  const { short, long } = getDailyRunDisplayMetadata(metadata);
+  return { short, long };
 }
 
 let pendingDailyRunLaunch: DailyRunLaunchRequest | undefined;
@@ -62,8 +98,18 @@ let currentDailyRunMetadata: DailyRunMetadata | undefined;
 
 function cloneMetadata(metadata: DailyRunMetadata): DailyRunMetadata {
   const manifest = metadata.bossRushManifest;
+  const normalizedCompatibility = normalizeSeededRunCompatibility<BossRushManifest>(metadata);
+  const normalizedVariant =
+    metadata.mode === "boss-rush"
+      ? ((metadata.bossRushVariant
+          ?? normalizedCompatibility?.variant
+          ?? manifest?.variant
+          ?? "normal") as BossRushVariant)
+      : undefined;
   return {
     ...metadata,
+    bossRushVariant: normalizedVariant,
+    seededRunCompatibility: cloneSeededRunCompatibility(normalizedCompatibility),
     bossRushManifest:
       manifest == null
         ? undefined
