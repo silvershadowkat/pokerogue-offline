@@ -4,6 +4,7 @@ import type { PlayerPokemon } from "#field/pokemon";
 import {
   AddPokeballModifierType,
   getModifierTypeFuncById,
+  getPartyLuckValue,
   getPlayerModifierTypeOptions,
   type ModifierType,
   ModifierTypeOption,
@@ -13,6 +14,7 @@ import {
   PokemonPpRestoreModifierType,
   PokemonStatusHealModifierType,
 } from "#modifiers/modifier-type";
+import { randSeedInt } from "#utils/common";
 import { BOSS_RUSH_CONFIG, BossRushVariant, getBossRushVariant, getBossRushVariantConfig } from "./boss-rush";
 import { getCurrentDailyRunMetadata } from "./daily-run-types";
 
@@ -59,6 +61,31 @@ export function getBossRushFixedShopItemIds(variant: BossRushVariant, waveIndex:
     { length: 3 },
     (_, index) => HARD_RECOVERY_SHOP_IDS[(offset + index) % HARD_RECOVERY_SHOP_IDS.length],
   );
+}
+
+function applyBossRushRewardTierBonus(
+  option: ModifierTypeOption,
+  party: PlayerPokemon[],
+  attempts: number,
+): ModifierTypeOption {
+  let upgraded = option;
+  const upgradeOdds = Math.floor(128 / ((getPartyLuckValue(party) + 4) / 4));
+  for (let attempt = 0; attempt < attempts && upgraded.type.tier < ModifierTier.MASTER; attempt++) {
+    if (randSeedInt(upgradeOdds) >= 4) {
+      continue;
+    }
+    const nextTier = (upgraded.type.tier + 1) as ModifierTier;
+    const replacement = getPlayerModifierTypeOptions(1, party, undefined, {
+      guaranteedModifierTiers: [nextTier],
+      fillRemaining: false,
+      allowLuckUpgrades: false,
+    })[0];
+    if (replacement) {
+      replacement.upgradeCount = upgraded.upgradeCount + 1;
+      upgraded = replacement;
+    }
+  }
+  return upgraded;
 }
 
 function isRecoveryType(type: ModifierType): boolean {
@@ -116,15 +143,17 @@ function generateUsefulOptions(
   count: number,
   excludeRecovery = false,
   excludedIds: ReadonlySet<string> = new Set(),
+  rewardTierUpAttempts = 0,
 ): ModifierTypeOption[] {
   const distinct: ModifierTypeOption[] = [];
   const duplicates: ModifierTypeOption[] = [];
   for (let attempt = 0; attempt < 300 && distinct.length < count; attempt++) {
-    const option = getPlayerModifierTypeOptions(1, party, undefined, {
+    const generated = getPlayerModifierTypeOptions(1, party, undefined, {
       guaranteedModifierTiers: [ModifierTier.GREAT],
       fillRemaining: false,
       allowLuckUpgrades: true,
     })[0];
+    const option = generated ? applyBossRushRewardTierBonus(generated, party, rewardTierUpAttempts) : undefined;
     if (
       !option
       || !isBossRushModifierTypeUseful(option.type, party, variant)
@@ -150,7 +179,14 @@ function generateUsefulOptions(
 
 export function getBossRushRewardOptions(party: PlayerPokemon[]): ModifierTypeOption[] {
   const config = getBossRushVariantConfig();
-  return generateUsefulOptions(party, config.variant, config.rewardOptionCount);
+  return generateUsefulOptions(
+    party,
+    config.variant,
+    config.rewardOptionCount,
+    false,
+    undefined,
+    config.rewardTierUpAttempts,
+  );
 }
 
 function fixedShopOption(
@@ -184,19 +220,18 @@ export function getBossRushShopOptions(
   let options: ModifierTypeOption[] = [];
   globalScene.executeWithSeedOffset(
     () => {
-      const permanentCount = config.variant === BossRushVariant.HARD ? 2 : config.shopOptionCount - 1;
-      options = generateUsefulOptions(
+      const seededUpgradeCount = config.variant === BossRushVariant.HARD ? 1 : config.shopOptionCount - 1;
+      const seededUpgrades = generateUsefulOptions(
         party,
         config.variant,
-        permanentCount,
+        seededUpgradeCount,
         true,
-        config.variant === BossRushVariant.NORMAL ? new Set(["RARE_CANDY"]) : undefined,
+        new Set(["RARE_CANDY"]),
       );
-      if (config.variant === BossRushVariant.NORMAL) {
-        // Rare Candy remains meaningful at the level cap in this engine and is
-        // the one fixed progression purchase; the other four stay seeded.
-        options.push(fixedShopOption("RARE_CANDY", baseCost * 1.5));
-      } else {
+      // Rare Candy is the fixed first slot in both variants. Rarer Candy stays
+      // in the seeded upgrade pool and is never forced.
+      options = [fixedShopOption("RARE_CANDY", baseCost * 1.5), ...seededUpgrades];
+      if (config.variant === BossRushVariant.HARD) {
         const costMultipliers: Record<(typeof HARD_RECOVERY_SHOP_IDS)[number], number> = {
           HYPER_POTION: 1,
           MAX_POTION: 1.5,

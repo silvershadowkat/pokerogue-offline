@@ -242,4 +242,32 @@ if (uiSrc.includes("UpdateAvailableUiHandler")) {
   writeFile(UI_PATH, uiSrc);
 }
 
+// Keep the shared headless UI tests usable after registering a handler that
+// masks text through its parent Container. Phaser's real Container supports
+// this; the upstream test double only needs the same chainable surface.
+const MOCK_CONTAINER_PATH = path.join(
+  "pokerogue-src",
+  "test",
+  "mocks",
+  "mocks-container",
+  "mock-container.ts",
+);
+let mockContainerSrc = readFile(MOCK_CONTAINER_PATH);
+if (!mockContainerSrc.includes("createGeometryMask()")) {
+  const maskAnchor = `  setMask(): this {
+    /// Sets the mask that this Game Object will use to render with.
+    return this;
+  }`;
+  requireAnchor(mockContainerSrc, maskAnchor, "MockContainer setMask method");
+  mockContainerSrc = mockContainerSrc.replace(
+    maskAnchor,
+    `${maskAnchor}
+
+  createGeometryMask(): this {
+    return this;
+  }`,
+  );
+  writeFile(MOCK_CONTAINER_PATH, mockContainerSrc);
+}
+
 console.log("\nupdate-available-screen patch applied successfully.");

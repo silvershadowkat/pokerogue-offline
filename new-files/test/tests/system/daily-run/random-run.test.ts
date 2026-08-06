@@ -5,7 +5,11 @@ import {
   getDailyCompletionEggSpecs,
   selectDailyCompletionRewardSpecies,
 } from "#system/daily-run/daily-completion-reward";
-import { shouldBlockDailyRunEscape, shouldEnableDailyShop } from "#system/daily-run/daily-run-rules";
+import {
+  isModifierSelectUiArgumentCountSupported,
+  shouldBlockDailyRunEscape,
+  shouldEnablePaidShop,
+} from "#system/daily-run/daily-run-rules";
 import { getDailyRunCompletionKey, getDailyRunDisplayMetadata } from "#system/daily-run/daily-run-types";
 import {
   getRandomRunConfig,
@@ -68,10 +72,20 @@ describe("Random Run variants", () => {
     expect(shouldBlockDailyRunEscape(false, false, true)).toBe(false);
   });
 
-  it("restores the standard shop for every Daily-derived run", () => {
-    expect(shouldEnableDailyShop(false, true)).toBe(true);
-    expect(shouldEnableDailyShop(true, false)).toBe(true);
-    expect(shouldEnableDailyShop(false, false)).toBe(false);
+  it("preserves native shops and enables a paid shop only for non-final Boss Rush waves", () => {
+    expect(shouldEnablePaidShop(true, false, 1)).toBe(true);
+    expect(shouldEnablePaidShop(false, false, 1)).toBe(false);
+    expect(shouldEnablePaidShop(false, true, 1)).toBe(true);
+    expect(shouldEnablePaidShop(false, true, 9)).toBe(true);
+    expect(shouldEnablePaidShop(false, true, 10)).toBe(false);
+  });
+
+  it("accepts stock, Claim All, and stable-shop modifier UI argument shapes", () => {
+    expect(isModifierSelectUiArgumentCountSupported(3)).toBe(false);
+    expect(isModifierSelectUiArgumentCountSupported(4)).toBe(true);
+    expect(isModifierSelectUiArgumentCountSupported(5)).toBe(true);
+    expect(isModifierSelectUiArgumentCountSupported(6)).toBe(true);
+    expect(isModifierSelectUiArgumentCountSupported(7)).toBe(false);
   });
 });
 

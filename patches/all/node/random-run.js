@@ -56,7 +56,7 @@ import {
   isRandomRunTrainerBossWave,
   isRandomRunTrainerWave,
 } from "#system/daily-run/random-run";
-import { shouldEnableDailyShop } from "#system/daily-run/daily-run-rules";`,
+`,
     "Random Run GameMode imports",
   );
   gameMode = replaceRequired(
@@ -116,14 +116,6 @@ import { shouldEnableDailyShop } from "#system/daily-run/daily-run-rules";`,
     return isBossRushMode() || (isRandomRunMode() ? isRandomRunBossWave(waveIndex) : waveIndex % 10 === 0);
   }`,
     "Random Run boss cadence",
-  );
-  gameMode = replaceRequired(
-    gameMode,
-    `    const status = new BooleanHolder(!this.hasNoShop);`,
-    `    // Daily-derived modes use the standard shop unless a mode-specific
-    // item provider (such as Boss Rush) replaces its contents.
-    const status = new BooleanHolder(shouldEnableDailyShop(!this.hasNoShop, this.isDaily));`,
-    "Daily shop availability",
   );
   write(gameModePath, gameMode);
 }

@@ -407,8 +407,9 @@ if (!reward.includes("getBossRushRewardOptions")) {
   reward = replaceRequired(
     reward,
     'import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/offline/claim-all-rewards-state";',
-    `import { getBossRushRewardOptions, getBossRushShopOptions } from "#system/daily-run/boss-rush-items";
-import { isBossRushMode, logBossRushRewards } from "#system/daily-run/boss-rush";
+    `import { isBossRushMode, logBossRushRewards } from "#system/daily-run/boss-rush";
+import { getBossRushRewardOptions, getBossRushShopOptions } from "#system/daily-run/boss-rush-items";
+import { isPaidShopEnabled, logPostBattleTransition } from "#system/daily-run/daily-run-rules";
 import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/offline/claim-all-rewards-state";`,
     "Boss Rush reward diagnostics import",
   );
@@ -418,16 +419,24 @@ import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/of
 
     const modifierSelectCallback`,
     `    this.typeOptions = this.getModifierTypeOptions(modifierCount);
-    const baseShopCost = new NumberHolder(globalScene.getWaveMoneyAmount(1));
-    globalScene.applyModifier(HealShopCostModifier, true, baseShopCost);
-    this.shopOptions = globalScene.gameMode.getShopStatus()
-      ? isBossRushMode()
+    const paidShopEnabled = isPaidShopEnabled();
+    if (paidShopEnabled && this.shopOptions.length === 0) {
+      const baseShopCost = new NumberHolder(globalScene.getWaveMoneyAmount(1));
+      globalScene.applyModifier(HealShopCostModifier, true, baseShopCost);
+      this.shopOptions = isBossRushMode()
         ? getBossRushShopOptions(globalScene.getPlayerParty(), globalScene.currentBattle.waveIndex, baseShopCost.value)
-        : getPlayerShopModifierTypeOptionsForWave(globalScene.currentBattle.waveIndex, baseShopCost.value)
-      : [];
+        : getPlayerShopModifierTypeOptionsForWave(globalScene.currentBattle.waveIndex, baseShopCost.value);
+    }
     if (isBossRushMode()) {
       logBossRushRewards(this.typeOptions.map(option => option.type.tier));
     }
+    logPostBattleTransition("phase-prepared", {
+      rewardEnabled: this.typeOptions.length > 0,
+      paidShopEnabled,
+      rewardOptionCount: this.typeOptions.length,
+      paidShopOptionCount: this.shopOptions.length,
+      copiedPhase: this.isCopy,
+    });
 
     const modifierSelectCallback`,
     "Boss Rush reward diagnostics",
@@ -462,12 +471,75 @@ import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/of
   );
   reward = replaceRequired(
     reward,
+    `    isCopy = false,
+    claimedRewardIndices: number[] = [],
+  ) {`,
+    `    isCopy = false,
+    claimedRewardIndices: number[] = [],
+    shopOptions: ModifierTypeOption[] = [],
+  ) {`,
+    "stable shop constructor argument",
+  );
+  reward = replaceRequired(
+    reward,
+    `    this.isCopy = isCopy;
+    this.claimedRewardIndices = new Set(claimedRewardIndices);`,
+    `    this.isCopy = isCopy;
+    this.claimedRewardIndices = new Set(claimedRewardIndices);
+    this.shopOptions = shopOptions;`,
+    "stable shop constructor assignment",
+  );
+  reward = replaceRequired(
+    reward,
+    `      this.typeOptions.map(o => o.type?.tier).filter(t => t !== undefined) as ModifierTier[],
+    );`,
+    `      this.typeOptions.map(o => o.type?.tier).filter(t => t !== undefined) as ModifierTier[],
+      undefined,
+      false,
+      [],
+      this.shopOptions,
+    );`,
+    "stable shop reroll handoff",
+  );
+  reward = replaceRequired(
+    reward,
     `      [...this.claimedRewardIndices],
     );`,
     `      [...this.claimedRewardIndices],
       this.shopOptions,
     );`,
     "stable shop UI handoff",
+  );
+  reward = replaceRequired(
+    reward,
+    `      [...claimedRewardIndices],
+    );`,
+    `      [...claimedRewardIndices],
+      this.shopOptions,
+    );`,
+    "stable shop copied-phase handoff",
+  );
+  reward = replaceRequired(
+    reward,
+    `    const modifierType = shopOption.type;
+    // The cached option already contains the displayed, modifier-adjusted cost.`,
+    `    if (!shopOption) {
+      logPostBattleTransition(
+        "shop-selection",
+        {
+          paidShopEnabled: isPaidShopEnabled(),
+          paidShopOptionCount: shopOptions.length,
+          requestedShopRow: rowCursor,
+          requestedShopColumn: cursor,
+        },
+        true,
+      );
+      globalScene.ui.playError();
+      return false;
+    }
+    const modifierType = shopOption.type;
+    // The cached option already contains the displayed, modifier-adjusted cost.`,
+    "invalid cached shop selection guard",
   );
   reward = replaceRequired(
     reward,
@@ -485,27 +557,91 @@ import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/of
 
 const modifierSelectPath = path.join(gameRoot, "src", "ui", "handlers", "modifier-select-ui-handler.ts");
 let modifierSelect = read(modifierSelectPath);
-if (!modifierSelect.includes("getBossRushShopOptions")) {
+if (!modifierSelect.includes("isModifierSelectUiArgumentCountSupported")) {
+  modifierSelect = replaceRequired(
+    modifierSelect,
+    'import type { ModifierSelectCallback } from "#phases/select-modifier-phase";\n',
+    "",
+    "relocate modifier callback type import",
+  );
   modifierSelect = replaceRequired(
     modifierSelect,
     'import { getPlayerShopModifierTypeOptionsForWave, TmModifierType } from "#modifiers/modifier-type";',
-    `import { getPlayerShopModifierTypeOptionsForWave, TmModifierType } from "#modifiers/modifier-type";
-import { getBossRushShopOptions } from "#system/daily-run/boss-rush-items";
-import { isBossRushMode } from "#system/daily-run/boss-rush";`,
+    `import { TmModifierType } from "#modifiers/modifier-type";
+import type { ModifierSelectCallback } from "#phases/select-modifier-phase";
+import {
+  isModifierSelectUiArgumentCountSupported,
+  isPaidShopEnabled,
+  logPostBattleTransition,
+} from "#system/daily-run/daily-run-rules";`,
     "Boss Rush modifier shop UI imports",
   );
   modifierSelect = replaceRequired(
     modifierSelect,
-    `    const shopTypeOptions = hasShop
+    'import { HealShopCostModifier, LockModifierTiersModifier, PokemonHeldItemModifier } from "#modifiers/modifier";',
+    'import { LockModifierTiersModifier, PokemonHeldItemModifier } from "#modifiers/modifier";',
+    "remove obsolete UI shop-cost import",
+  );
+  modifierSelect = replaceRequired(
+    modifierSelect,
+    'import { formatMoney, NumberHolder } from "#utils/common";',
+    'import { formatMoney } from "#utils/common";',
+    "remove obsolete UI number-holder import",
+  );
+  modifierSelect = replaceRequired(
+    modifierSelect,
+    `    const hasShop = globalScene.gameMode.getShopStatus();
+    const baseShopCost = new NumberHolder(globalScene.getWaveMoneyAmount(1));
+    globalScene.applyModifier(HealShopCostModifier, true, baseShopCost);
+    const shopTypeOptions = hasShop
       ? getPlayerShopModifierTypeOptionsForWave(globalScene.currentBattle.waveIndex, baseShopCost.value)
       : [];`,
-    `    const shopTypeOptions = hasShop
-      ? ((args[5] as ModifierTypeOption[] | undefined)
-        ?? (isBossRushMode()
-          ? getBossRushShopOptions(globalScene.getPlayerParty(), globalScene.currentBattle.waveIndex, baseShopCost.value)
-          : getPlayerShopModifierTypeOptionsForWave(globalScene.currentBattle.waveIndex, baseShopCost.value)))
-      : [];`,
+    `    const hasShop = isPaidShopEnabled();
+    const shopTypeOptions = hasShop ? ((args[5] as ModifierTypeOption[] | undefined) ?? []) : [];
+    logPostBattleTransition("ui-show", {
+      rewardEnabled: typeOptions.length > 0,
+      paidShopEnabled: hasShop,
+      rewardOptionCount: typeOptions.length,
+      paidShopOptionCount: shopTypeOptions.length,
+      uiSetupCompleted: true,
+    });`,
     "stable five-item shop UI",
+  );
+  modifierSelect = replaceRequired(
+    modifierSelect,
+    `      (args.length !== 4 && args.length !== 5)
+      || !Array.isArray(args[1])
+      || !(args[2] instanceof Function)`,
+    `      !isModifierSelectUiArgumentCountSupported(args.length)
+      || !Array.isArray(args[1])
+      || !(args[2] instanceof Function)`,
+    "stable shop UI argument validation",
+  );
+  modifierSelect = replaceRequired(
+    modifierSelect,
+    `      || !(args[2] instanceof Function)
+    ) {
+      return false;
+    }
+
+    super.show(args);`,
+    `      || !(args[2] instanceof Function)
+    ) {
+      logPostBattleTransition(
+        "ui-invalid-arguments",
+        {
+          argumentCount: args.length,
+          rewardArrayPresent: Array.isArray(args[1]),
+          callbackPresent: args[2] instanceof Function,
+          uiSetupCompleted: false,
+        },
+        true,
+      );
+      return false;
+    }
+
+    super.show(args);`,
+    "stable shop UI argument diagnostics",
   );
   write(modifierSelectPath, modifierSelect);
 }

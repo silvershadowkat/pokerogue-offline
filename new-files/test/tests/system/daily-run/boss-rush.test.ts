@@ -14,6 +14,7 @@ import { VariantTier } from "#enums/variant-tier";
 import { AttackTypeBoosterModifier } from "#modifiers/modifier";
 import { getModifierTypeFuncById, ModifierType, regenerateModifierPoolThresholds } from "#modifiers/modifier-type";
 import { CommandPhase } from "#phases/command-phase";
+import { SelectModifierPhase } from "#phases/select-modifier-phase";
 import {
   BOSS_RUSH_CONFIG,
   BOSS_RUSH_V1_ALGORITHM_VERSION,
@@ -37,6 +38,7 @@ import {
 } from "#system/daily-run/boss-rush";
 import {
   getBossRushFixedShopItemIds,
+  getBossRushRewardOptions,
   getBossRushShopOptions,
   isBossRushModifierTypeUseful,
 } from "#system/daily-run/boss-rush-items";
@@ -48,19 +50,11 @@ import {
   restoreDailyRunMetadata,
 } from "#system/daily-run/daily-run-types";
 import { GameManager } from "#test/framework/game-manager";
-import { MockContainer } from "#test/mocks/mocks-container/mock-container";
 import { NumberHolder } from "#utils/common";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 describe("Boss Rush generation", () => {
   beforeAll(() => {
-    // The offline Update Available screen uses a geometry mask that the shared
-    // headless Container mock does not yet implement.
-    Object.assign(MockContainer.prototype, {
-      createGeometryMask() {
-        return this;
-      },
-    });
     const phaserGame = new Phaser.Game({ type: Phaser.HEADLESS });
     new GameManager(phaserGame);
   });
@@ -176,6 +170,7 @@ describe("Boss Rush generation", () => {
     const rewardSettings = getBossRushRewardSettings();
     expect(rewardSettings.guaranteedModifierTiers).toHaveLength(BOSS_RUSH_CONFIG.rewardOptionCount);
     expect(rewardSettings.guaranteedModifierTiers?.every(tier => tier >= ModifierTier.GREAT)).toBe(true);
+    expect(BOSS_RUSH_CONFIG.rewardTierUpAttempts).toBe(1);
   });
 
   it("keeps v1 content stable after v2 and namespaces Normal and Hard", () => {
@@ -222,6 +217,7 @@ describe("Boss Rush generation", () => {
     expect(isBossRushModifierTypeUseful(item("MAX_POTION"), party, BossRushVariant.NORMAL)).toBe(false);
     expect(isBossRushModifierTypeUseful(item("MAX_POTION"), party, BossRushVariant.HARD)).toBe(true);
     expect(isBossRushModifierTypeUseful(item("RARE_CANDY"), party, BossRushVariant.NORMAL)).toBe(true);
+    expect(isBossRushModifierTypeUseful(item("RARER_CANDY"), party, BossRushVariant.NORMAL)).toBe(true);
     expect(isBossRushModifierTypeUseful(item("POTION"), party, BossRushVariant.HARD)).toBe(false);
     for (const id of ["ULTRA_BALL", "LURE", "MAP", "IV_SCANNER"]) {
       expect(isBossRushModifierTypeUseful(item(id), party, BossRushVariant.NORMAL)).toBe(false);
@@ -260,12 +256,14 @@ describe("Boss Rush generation", () => {
           replay.map(option => [option.type.id, option.cost]),
         );
         expect(first.every(option => option.cost > 0)).toBe(true);
+        expect(first[0].type.id).toBe("RARE_CANDY");
         if (variant === BossRushVariant.NORMAL) {
-          expect(first.map(option => option.type.id)).toContain("RARE_CANDY");
+          expect(first.slice(1)).toHaveLength(4);
+          const excludedNormalIds = ["RARE_CANDY", ...getBossRushFixedShopItemIds(BossRushVariant.HARD, 1)];
+          expect(first.slice(1).every(option => !excludedNormalIds.includes(option.type.id))).toBe(true);
         } else {
-          expect(first.map(option => option.type.id)).toEqual(
-            expect.arrayContaining(["HYPER_POTION", "MAX_POTION", "FULL_RESTORE"]),
-          );
+          expect(first[1].type.id).not.toBe("RARE_CANDY");
+          expect(first.slice(2).map(option => option.type.id)).toEqual(["HYPER_POTION", "MAX_POTION", "FULL_RESTORE"]);
         }
       }
     } finally {
@@ -274,14 +272,41 @@ describe("Boss Rush generation", () => {
     }
   });
 
-  it("retains all three shiny tiers in the actual Egg objects", () => {
-    const eggs = getDailyCompletionEggSpecs(SpeciesId.BULBASAUR).map(spec => new Egg(spec));
-    expect(eggs.map(egg => [egg.isShiny, egg.variantTier])).toEqual([
-      [false, VariantTier.STANDARD],
-      [true, VariantTier.STANDARD],
-      [true, VariantTier.RARE],
-      [true, VariantTier.EPIC],
-    ]);
+  it("keeps free rewards separate and Great-or-better with the Boss-only tier bonus", () => {
+    const party = [
+      globalScene.addPlayerPokemon(speciesDataRegistry.getSpecies(SpeciesId.BULBASAUR), 100),
+      globalScene.addPlayerPokemon(speciesDataRegistry.getSpecies(SpeciesId.CHARMANDER), 100),
+      globalScene.addPlayerPokemon(speciesDataRegistry.getSpecies(SpeciesId.SQUIRTLE), 100),
+    ];
+    const previousBattle = globalScene.currentBattle;
+    try {
+      restoreDailyRunMetadata({
+        mode: "boss-rush",
+        canonicalSeed: "reward-tier-bonus",
+        bossRushVariant: BossRushVariant.NORMAL,
+      });
+      globalScene.currentBattle = new Battle(globalScene.gameMode, {
+        waveIndex: 1,
+        battleType: BattleType.WILD,
+        double: false,
+      });
+      regenerateModifierPoolThresholds(party, ModifierPoolType.PLAYER);
+      const rewards = getBossRushRewardOptions(party);
+      expect(rewards).toHaveLength(5);
+      expect(rewards.every(option => option.type.tier >= ModifierTier.GREAT)).toBe(true);
+    } finally {
+      globalScene.currentBattle = previousBattle;
+      clearDailyRunMetadata();
+    }
+  });
+
+  it("retains the exact cached paid shop across copied TM-cancel phases", () => {
+    const item = getModifierTypeFuncById("RARE_CANDY")();
+    item.id = "RARE_CANDY";
+    const cachedShop = [{ type: item, upgradeCount: 0, cost: 600 }] as never;
+    const phase = new SelectModifierPhase(0, undefined, undefined, false, [], cachedShop);
+    const copy = phase.copy() as unknown as { shopOptions: unknown };
+    expect(copy.shopOptions).toBe(cachedShop);
   });
 
   it("lets the Egg engine normalize unsupported Vanillite tiers without skipping its unlock", () => {

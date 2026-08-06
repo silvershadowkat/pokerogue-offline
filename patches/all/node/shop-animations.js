@@ -93,11 +93,11 @@ if (!phase.includes("SHOP_ANIMATIONS_OVERRIDE === false")) {
     `    globalScene.reroll = true;
     globalScene.phaseManager.unshiftNew(
       "SelectModifierPhase",`,
-    `    const instantReroll =
-      activeOverrides.SHOP_ANIMATIONS_OVERRIDE === false && !(globalThis as any).Switch;
+    `    const instantReroll = activeOverrides.SHOP_ANIMATIONS_OVERRIDE === false && !(globalThis as any).Switch;
     const instantNextRerollCount = this.rerollCount + 1;
-    const instantNextModifierTiers =
-      this.typeOptions.map(o => o.type?.tier).filter(t => t !== undefined) as ModifierTier[];
+    const instantNextModifierTiers = this.typeOptions
+      .map(o => o.type?.tier)
+      .filter(t => t !== undefined) as ModifierTier[];
     const instantModifierCount = this.getModifierCount();
     const instantUiHandler = globalScene.ui.getHandler() as ModifierSelectUiHandler;
 
@@ -183,7 +183,7 @@ if (!ui.includes("const shopRevealDuration = activeOverrides.SHOP_ANIMATIONS_OVE
     globalScene.showShopOverlay(750 * globalScene.gameSpeed);
     globalScene.updateAndShowText(750);`,
     `    /* Keep the normal overlay reveal when enabled; Off presents the completed shop immediately. */
-    const shopRevealDuration = activeOverrides.SHOP_ANIMATIONS_OVERRIDE !== false ? 750 : 0;
+    const shopRevealDuration = activeOverrides.SHOP_ANIMATIONS_OVERRIDE === false ? 0 : 750;
     globalScene.showShopOverlay(shopRevealDuration * globalScene.gameSpeed);
     globalScene.updateAndShowText(shopRevealDuration);`,
     "instant shop overlay duration",
@@ -312,29 +312,16 @@ if (!ui.includes("reuse(modifierTypeOption: ModifierTypeOption): void")) {
     this.pb?.setTint(0x555555);
 
     if (!this.claimedBackground) {
-      this.claimedBackground = globalScene.add.rectangle(
-        0,
-        62,
-        96,
-        18,
-        0x000000,
-        0.9,
-      );
+      this.claimedBackground = globalScene.add.rectangle(0, 62, 96, 18, 0x000000, 0.9);
       this.claimedBackground.setStrokeStyle(2, 0xff3030, 1);
       this.add(this.claimedBackground);
     }
     this.claimedBackground.setVisible(true);
 
     if (!this.claimedText) {
-      this.claimedText = addTextObject(
-        0,
-        56,
-        "CLAIMED",
-        TextStyle.PARTY_RED,
-        {
-          align: "center",
-        },
-      );
+      this.claimedText = addTextObject(0, 56, "CLAIMED", TextStyle.PARTY_RED, {
+        align: "center",
+      });
       this.claimedText.setOrigin(0.5, 0);
       this.add(this.claimedText);
     }

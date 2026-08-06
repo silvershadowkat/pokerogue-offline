@@ -34,6 +34,8 @@ export const BOSS_RUSH_CONFIG = Object.freeze({
   startingMoney: 10000,
   rewardOptionCount: 5,
   shopOptionCount: 5,
+  /** One additional standard luck roll per free reward. */
+  rewardTierUpAttempts: 1,
   minimumRewardTier: ModifierTier.GREAT,
   bossesCatchable: false,
   runningEnabled: false,
@@ -61,6 +63,7 @@ export interface BossRushVariantConfig {
   rewardMinimumTier: ModifierTier.GREAT;
   rewardOptionCount: 5;
   shopOptionCount: 5;
+  rewardTierUpAttempts: 1;
   startingMoney: 10000;
   shieldBreakpoints: typeof BOSS_RUSH_CONFIG.shieldBreakpoints;
 }
@@ -77,6 +80,7 @@ export const BOSS_RUSH_VARIANTS: Readonly<Record<BossRushVariant, BossRushVarian
     rewardMinimumTier: ModifierTier.GREAT,
     rewardOptionCount: 5,
     shopOptionCount: 5,
+    rewardTierUpAttempts: BOSS_RUSH_CONFIG.rewardTierUpAttempts,
     startingMoney: 10000,
     shieldBreakpoints: BOSS_RUSH_CONFIG.shieldBreakpoints,
   }),
@@ -91,6 +95,7 @@ export const BOSS_RUSH_VARIANTS: Readonly<Record<BossRushVariant, BossRushVarian
     rewardMinimumTier: ModifierTier.GREAT,
     rewardOptionCount: 5,
     shopOptionCount: 5,
+    rewardTierUpAttempts: BOSS_RUSH_CONFIG.rewardTierUpAttempts,
     startingMoney: 10000,
     shieldBreakpoints: BOSS_RUSH_CONFIG.shieldBreakpoints,
   }),
