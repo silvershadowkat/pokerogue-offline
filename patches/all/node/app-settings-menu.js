@@ -25,12 +25,12 @@
  *     Left/Right-cycle-and-persist mechanism with zero custom code. Governs
  *     whether Backup Save includes sessionData keys. Locked until connected
  *     (it's meaningless otherwise).
- *   - NEW "Drive Last Played" row — read-only, shows the *Drive backup's*
- *     embedded save timestamp (not the local one), refreshed whenever the
- *     tab detects a live connection.
+ *   - NEW "Drive Last Backup" row — read-only, shows the backup envelope's
+ *     creation timestamp in the device's local timezone, refreshed whenever
+ *     the tab detects a live connection.
  *   - Locked rows are now grouped together in the row order: Connect,
  *     [Backup Save, Restore Backup, Include Current Run], Drive Last
- *     Played, Clear All Data.
+ *     Backup, Clear All Data.
  *
  * Sub-patches, applied in order:
  *
@@ -42,7 +42,7 @@
  *        collectBackupPayload() now respects "Include Current Run";
  *        restoreFromBackup() no longer excludes session keys (it just
  *        writes back whatever a given backup actually contains); adds
- *        getRemoteLastPlayed(). listAppDataFiles() removed — nothing
+ *        getRemoteBackupTime(). listAppDataFiles() removed — nothing
  *        uses it now that the debug screen is gone.
  *
  *   3. src/ui/settings/offline-settings-ui-handler.ts  (new file)
@@ -313,7 +313,7 @@ if (settingsSrc.includes("SettingType.APP")) {
   },
   {
     key: SettingKeys.Offline_Drive_Last_Played,
-    label: "Drive Last Played",
+    label: "Drive Last Backup",
     options: [{ value: "0", label: "—" }],
     default: 0,
     type: SettingType.APP,

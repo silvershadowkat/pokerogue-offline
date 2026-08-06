@@ -113,8 +113,8 @@ history.
 
 1. Build the desired platform from this branch.
 2. Open **Settings → Offline → Connect Google Account**.
-3. Back up with **Include Current Run** Off and confirm **Drive Last Played**
-   updates.
+3. Back up with **Include Current Run** Off and confirm **Drive Last Backup**
+   updates to the device's current local time.
 4. Export the local save manually as a separate safety copy.
 5. Change a harmless local setting, restore the Drive backup, and press Confirm
    again when prompted to reload.
