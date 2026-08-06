@@ -17,12 +17,16 @@ import {
   createCustomTextSeed,
   createOfflineDailySeed,
   createRandomCanonicalSeed,
-  createRandomDailySeed,
   getUtcDateKey,
   OFFLINE_DAILY_ALGORITHM_VERSION,
-  RANDOM_DAILY_ALGORITHM_VERSION,
 } from "./daily-run-seed-utils";
 import { type DailyRunLaunchRequest, getDailyRunDisplayMetadata } from "./daily-run-types";
+import {
+  normalizeRandomRunWaveCount,
+  RANDOM_RUN_ALGORITHM_VERSION,
+  RANDOM_RUN_WAVE_COUNTS,
+  type RandomRunWaveCount,
+} from "./random-run";
 import { normalizeSeededRunCompatibility } from "./seeded-run-compatibility";
 
 export interface DailyRunMenuContext {
@@ -201,28 +205,50 @@ function openOfflineRun(context: DailyRunMenuContext): void {
   );
 }
 
-function openRandomRun(context: DailyRunMenuContext): void {
-  confirm(
-    t("shadowDailyRandomConfirm"),
-    () => {
-      const canonicalSeed = createRandomDailySeed();
-      confirmGeneratedSeed(
-        canonicalSeed,
-        () =>
-          context.launch({
-            seedOrConfig: canonicalSeed,
-            metadata: {
-              mode: "random",
-              canonicalSeed,
-              algorithmVersion: RANDOM_DAILY_ALGORITHM_VERSION,
-              specialDailyConfig: false,
-            },
-          }),
-        () => showDailyRunTypeMenu(context),
-      );
+function createRandomRunRequest(
+  canonicalSeed: string,
+  waveCount: RandomRunWaveCount,
+  generatorVersion = RANDOM_RUN_ALGORITHM_VERSION,
+): DailyRunLaunchRequest {
+  return {
+    seedOrConfig: canonicalSeed,
+    metadata: {
+      mode: "random",
+      canonicalSeed,
+      randomRunWaveCount: waveCount,
+      algorithmVersion: generatorVersion,
+      specialDailyConfig: false,
+      seededRunCompatibility: {
+        schemaVersion: 1,
+        generatorId: "random-daily",
+        generatorVersion,
+        variant: String(waveCount),
+        settings: { waveCount },
+      },
     },
-    () => showDailyRunTypeMenu(context),
+  };
+}
+
+function openRandomRun(context: DailyRunMenuContext, waveCount: RandomRunWaveCount): void {
+  const back = () => showRandomRunVariantMenu(context);
+  confirm(
+    t("shadowDailyRandomConfirm", { waves: waveCount }),
+    () => {
+      const canonicalSeed = createRandomCanonicalSeed(`${RANDOM_RUN_ALGORITHM_VERSION}|${waveCount}`);
+      confirmGeneratedSeed(canonicalSeed, () => context.launch(createRandomRunRequest(canonicalSeed, waveCount)), back);
+    },
+    back,
   );
+}
+
+export function showRandomRunVariantMenu(context: DailyRunMenuContext): void {
+  const options: OptionSelectItem[] = RANDOM_RUN_WAVE_COUNTS.map(waveCount => ({
+    label: t("shadowDailyRandomWaveOption", { waves: waveCount }),
+    handler: () => (openRandomRun(context, waveCount), true),
+    onHover: () => globalScene.ui.showText(t("shadowDailyRandomWaveDescription", { waves: waveCount }), 0),
+  }));
+  options.push({ label: t("cancel"), handler: () => (showDailyRunTypeMenu(context), true) });
+  showOptions(options, t("shadowDailyRandomVariantHelp"));
 }
 
 function createBossRushRequest(
@@ -288,6 +314,7 @@ function historyModeLabel(entry: DailySeedHistoryEntry): string {
     mode: entry.mode,
     canonicalSeed: entry.canonicalSeed,
     bossRushVariant: entry.bossRushVariant,
+    randomRunWaveCount: entry.randomRunWaveCount,
     seededRunCompatibility: entry.seededRunCompatibility,
     bossRushManifest: entry.bossRushManifest,
   }).compact;
@@ -347,6 +374,14 @@ function showPreviousSeedList(context: DailyRunMenuContext, cursor = 0): void {
             compatibility.snapshot ?? entry.bossRushManifest,
           ),
         );
+        return true;
+      }
+      if (entry.mode === "random") {
+        const compatibility = normalizeSeededRunCompatibility(entry)!;
+        const waveCount = normalizeRandomRunWaveCount(
+          entry.randomRunWaveCount ?? compatibility.settings?.waveCount ?? compatibility.variant,
+        );
+        context.launch(createRandomRunRequest(entry.canonicalSeed, waveCount, compatibility.generatorVersion));
         return true;
       }
       context.launch({
@@ -446,7 +481,7 @@ export function showDailyRunTypeMenu(context: DailyRunMenuContext): void {
     },
     {
       label: t("shadowDailyRandom"),
-      handler: () => (openRandomRun(context), true),
+      handler: () => (showRandomRunVariantMenu(context), true),
       onHover: () => globalScene.ui.showText(t("shadowDailyRandomDescription"), 0),
     },
     { label: t("cancel"), handler: () => (inCleanMessageMode(context.cancel), true) },

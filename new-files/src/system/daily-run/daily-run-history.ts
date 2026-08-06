@@ -1,5 +1,6 @@
 import type { BossRushManifest, BossRushVariant } from "./boss-rush";
 import type { DailyRunMetadata } from "./daily-run-types";
+import type { RandomRunWaveCount } from "./random-run";
 import { normalizeSeededRunCompatibility, type SeededRunCompatibility } from "./seeded-run-compatibility";
 
 export const DAILY_SEED_HISTORY_STORAGE_KEY = "silvershadow_daily_seed_history_v1";
@@ -20,6 +21,7 @@ export interface DailySeedHistoryEntry {
   specialDailyConfig?: boolean | undefined;
   serializedDailyConfig?: string | undefined;
   bossRushVariant?: BossRushVariant | undefined;
+  randomRunWaveCount?: RandomRunWaveCount | undefined;
   bossRushManifest?: BossRushManifest | undefined;
   seededRunCompatibility: SeededRunCompatibility<BossRushManifest>;
 }
@@ -40,6 +42,11 @@ function isHistoryMode(value: unknown): value is DailySeedHistoryMode {
     || value === "custom-text"
     || value === "boss-rush"
   );
+}
+
+function historyRandomRunWaveCount(value: unknown): RandomRunWaveCount {
+  const numeric = typeof value === "string" ? Number(value) : value;
+  return [5, 10, 20, 30, 50, 100].includes(numeric as number) ? (numeric as RandomRunWaveCount) : 50;
 }
 
 function validateEntry(value: unknown): DailySeedHistoryEntry | undefined {
@@ -79,6 +86,8 @@ function validateEntry(value: unknown): DailySeedHistoryEntry | undefined {
     serializedDailyConfig:
       typeof candidate.serializedDailyConfig === "string" ? candidate.serializedDailyConfig : undefined,
     bossRushVariant: candidate.bossRushVariant === "hard" ? ("hard" as BossRushVariant) : undefined,
+    randomRunWaveCount:
+      candidate.mode === "random" ? historyRandomRunWaveCount(candidate.randomRunWaveCount) : undefined,
     bossRushManifest:
       typeof candidate.bossRushManifest === "object" && candidate.bossRushManifest != null
         ? (candidate.bossRushManifest as unknown as BossRushManifest)
@@ -135,6 +144,7 @@ export function recordDailySeedHistory(metadata: DailyRunMetadata, usedAt = Date
     specialDailyConfig: metadata.specialDailyConfig,
     serializedDailyConfig: metadata.serializedDailyConfig,
     bossRushVariant: metadata.bossRushVariant,
+    randomRunWaveCount: metadata.randomRunWaveCount,
     bossRushManifest: metadata.bossRushManifest,
     seededRunCompatibility: normalizeSeededRunCompatibility<BossRushManifest>(metadata)!,
   };

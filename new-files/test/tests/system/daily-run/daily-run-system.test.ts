@@ -272,7 +272,7 @@ describe("Previous Seed history", () => {
       50,
     );
     recordDailySeedHistory({ mode: "previous", canonicalSeed: "previous" });
-    recordDailySeedHistory({ mode: "random", canonicalSeed: "random" }, 100);
+    recordDailySeedHistory({ mode: "random", canonicalSeed: "random", randomRunWaveCount: 10 }, 100);
     recordDailySeedHistory({ mode: "offline", canonicalSeed: "offline", selectedDate: "2026-08-05" }, 200);
     recordDailySeedHistory({ mode: "custom-text", canonicalSeed: "text", friendlyTextSeed: "Monday" }, 300);
     recordDailySeedHistory({ mode: "boss-rush", canonicalSeed: "boss-rush" }, 400);
@@ -320,8 +320,8 @@ describe("Daily Run save labels", () => {
     });
     expect(getDailyRunSaveLabels({ mode: "offline", canonicalSeed: "b" }).long).toBe("Offline Daily Run");
     expect(getDailyRunSaveLabels({ mode: "random", canonicalSeed: "c" })).toEqual({
-      short: "Random",
-      long: "Random Run",
+      short: "Random50",
+      long: "Random50",
     });
     expect(getDailyRunSaveLabels({ mode: "custom-text", canonicalSeed: "d" })).toEqual({
       short: "Custom Run",
@@ -361,7 +361,15 @@ describe("Seeded run generator compatibility", () => {
     expect(normalizeSeededRunCompatibility({ mode })).toMatchObject({
       generatorId,
       generatorVersion,
-      variant: mode === "boss-rush" ? "normal" : "standard",
+      variant: mode === "boss-rush" ? "normal" : mode === "random" ? "50" : "standard",
+    });
+  });
+
+  it("preserves Random Run length in compatibility settings", () => {
+    expect(normalizeSeededRunCompatibility({ mode: "random", randomRunWaveCount: 20 })).toMatchObject({
+      generatorId: "random-daily",
+      variant: "20",
+      settings: { waveCount: 20 },
     });
   });
 

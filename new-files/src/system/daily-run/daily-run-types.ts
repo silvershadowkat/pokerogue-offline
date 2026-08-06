@@ -1,5 +1,6 @@
 import type { BossRushManifest, BossRushVariant } from "./boss-rush";
 import { recordDailySeedHistory } from "./daily-run-history";
+import type { RandomRunWaveCount } from "./random-run";
 import {
   cloneSeededRunCompatibility,
   normalizeSeededRunCompatibility,
@@ -33,6 +34,8 @@ export interface DailyRunMetadata {
   bossRushManifest?: BossRushManifest | undefined;
   /** Explicit variant prevents Normal and Hard saves from ever being confused. */
   bossRushVariant?: BossRushVariant | undefined;
+  /** Random Run length; absent historical entries are the original 50-wave variant. */
+  randomRunWaveCount?: RandomRunWaveCount | undefined;
   /** Generic reconstruction contract for every seeded mode. */
   seededRunCompatibility?: SeededRunCompatibility<BossRushManifest> | undefined;
 }
@@ -70,8 +73,12 @@ export function getDailyRunDisplayMetadata(metadata?: DailyRunMetadata): DailyRu
         compact: "Offline Daily Run",
         history: "Offline Daily Run",
       };
-    case "random":
-      return { short: "Random", long: "Random Run", compact: "Random Run", history: "Random Run" };
+    case "random": {
+      const recordedWaveCount = Number(metadata.seededRunCompatibility?.variant);
+      const waveCount = metadata.randomRunWaveCount ?? (Number.isFinite(recordedWaveCount) ? recordedWaveCount : 50);
+      const name = `Random${waveCount}`;
+      return { short: name, long: name, compact: name, history: name };
+    }
     case "boss-rush": {
       const hard =
         metadata.bossRushVariant === "hard"
@@ -93,6 +100,15 @@ export function getDailyRunSaveLabels(metadata?: DailyRunMetadata): DailyRunSave
   return { short, long };
 }
 
+/** Stable identity for first-clear tracking; variants sharing a canonical seed never collide. */
+export function getDailyRunCompletionKey(seed: string, metadata?: DailyRunMetadata): string {
+  const compatibility = metadata == null ? undefined : normalizeSeededRunCompatibility(metadata);
+  if (!compatibility) {
+    return seed;
+  }
+  return [compatibility.generatorId, compatibility.generatorVersion, compatibility.variant, seed].join("|");
+}
+
 let pendingDailyRunLaunch: DailyRunLaunchRequest | undefined;
 let currentDailyRunMetadata: DailyRunMetadata | undefined;
 
@@ -106,9 +122,20 @@ function cloneMetadata(metadata: DailyRunMetadata): DailyRunMetadata {
           ?? manifest?.variant
           ?? "normal") as BossRushVariant)
       : undefined;
+  const compatibilityWaveCount = Number(
+    normalizedCompatibility?.settings?.waveCount ?? normalizedCompatibility?.variant,
+  );
+  const normalizedRandomWaveCount =
+    metadata.mode === "random"
+      ? ((metadata.randomRunWaveCount
+          ?? ([5, 10, 20, 30, 50, 100].includes(compatibilityWaveCount)
+            ? compatibilityWaveCount
+            : 50)) as RandomRunWaveCount)
+      : undefined;
   return {
     ...metadata,
     bossRushVariant: normalizedVariant,
+    randomRunWaveCount: normalizedRandomWaveCount,
     seededRunCompatibility: cloneSeededRunCompatibility(normalizedCompatibility),
     bossRushManifest:
       manifest == null

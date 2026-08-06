@@ -25,6 +25,7 @@ export interface SeededRunCompatibilitySource<TSnapshot = unknown> {
   mode: string;
   algorithmVersion?: string | undefined;
   bossRushVariant?: string | undefined;
+  randomRunWaveCount?: number | undefined;
   selectedDate?: string | undefined;
   specialDailyConfig?: boolean | undefined;
   serializedDailyConfig?: string | undefined;
@@ -55,11 +56,17 @@ export function normalizeSeededRunCompatibility<TSnapshot>(
     schemaVersion: SEEDED_RUN_COMPATIBILITY_SCHEMA_VERSION,
     generatorId: legacy.id,
     generatorVersion: source.algorithmVersion ?? legacy.version,
-    variant: source.mode === "boss-rush" ? (source.bossRushVariant ?? "normal") : "standard",
+    variant:
+      source.mode === "boss-rush"
+        ? (source.bossRushVariant ?? "normal")
+        : source.mode === "random"
+          ? String(source.randomRunWaveCount ?? 50)
+          : "standard",
     settings: {
       selectedDate: source.selectedDate ?? null,
       specialDailyConfig: source.specialDailyConfig ?? false,
       serializedDailyConfig: source.serializedDailyConfig ?? null,
+      waveCount: source.mode === "random" ? (source.randomRunWaveCount ?? 50) : null,
     },
     snapshot: source.bossRushManifest,
   };
