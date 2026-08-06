@@ -1,6 +1,7 @@
 import { globalScene } from "#app/global-scene";
 import { ModifierTier } from "#enums/modifier-tier";
 import type { PlayerPokemon } from "#field/pokemon";
+import { type Modifier, PersistentModifier } from "#modifiers/modifier";
 import {
   AddPokeballModifierType,
   getModifierTypeFuncById,
@@ -8,6 +9,7 @@ import {
   getPlayerModifierTypeOptions,
   type ModifierType,
   ModifierTypeOption,
+  MoneyRewardModifierType,
   PokemonAllMovePpRestoreModifierType,
   PokemonHpRestoreModifierType,
   PokemonModifierType,
@@ -38,6 +40,12 @@ const ALWAYS_IRRELEVANT_IDS = new Set([
   "EXP_SHARE",
   "EXP_BALANCE",
   "CANDY_JAR",
+  "NUGGET",
+  "BIG_NUGGET",
+  "RELIC_GOLD",
+  "AMULET_COIN",
+  "GOLDEN_PUNCH",
+  "COIN_CASE",
 ]);
 
 const WEAK_LEVEL_100_RECOVERY_IDS = new Set(["POTION", "SUPER_POTION", "ETHER", "ELIXIR", "REVIVE"]);
@@ -90,20 +98,20 @@ function applyBossRushRewardTierBonus(
 
 function isRecoveryType(type: ModifierType): boolean {
   return (
-    type instanceof PokemonHpRestoreModifierType
-    || type instanceof PokemonStatusHealModifierType
-    || type instanceof PokemonPpRestoreModifierType
-    || type instanceof PokemonAllMovePpRestoreModifierType
-    || type.id === "SACRED_ASH"
+    type instanceof PokemonHpRestoreModifierType ||
+    type instanceof PokemonStatusHealModifierType ||
+    type instanceof PokemonPpRestoreModifierType ||
+    type instanceof PokemonAllMovePpRestoreModifierType ||
+    type.id === "SACRED_ASH"
   );
 }
 
 function canAffectParty(type: ModifierType, party: PlayerPokemon[]): boolean {
   if (type instanceof PokemonPpRestoreModifierType || type instanceof PokemonAllMovePpRestoreModifierType) {
-    return party.some(pokemon => pokemon.getMoveset().some(move => move.ppUsed > 0));
+    return party.some((pokemon) => pokemon.getMoveset().some((move) => move.ppUsed > 0));
   }
   if (type instanceof PokemonModifierType && typeof type.selectFilter === "function") {
-    return party.some(pokemon => !type.selectFilter?.(pokemon));
+    return party.some((pokemon) => !type.selectFilter?.(pokemon));
   }
   return true;
 }
@@ -116,10 +124,11 @@ export function isBossRushModifierTypeUseful(
   context: "reward" | "shop" = "reward",
 ): boolean {
   if (
-    type.tier < ModifierTier.GREAT
-    || type instanceof AddPokeballModifierType
-    || ALWAYS_IRRELEVANT_IDS.has(type.id)
-    || type.id?.includes("VOUCHER")
+    type.tier < ModifierTier.GREAT ||
+    type instanceof AddPokeballModifierType ||
+    type instanceof MoneyRewardModifierType ||
+    ALWAYS_IRRELEVANT_IDS.has(type.id) ||
+    type.id?.includes("VOUCHER")
   ) {
     return false;
   }
@@ -135,6 +144,20 @@ export function isBossRushModifierTypeUseful(
     return true;
   }
   return canAffectParty(type, party);
+}
+
+/** Boss Rush purchases must never fall through to the engine's stack-overflow ball conversion. */
+export function isBossRushShopModifierAtCapacity(modifier: Modifier): boolean {
+  if (!(modifier instanceof PersistentModifier)) {
+    return false;
+  }
+  const matchingModifier = globalScene.findModifier(
+    (existing) => existing === modifier || existing.match(modifier) || modifier.match(existing),
+  );
+  return (
+    !!matchingModifier &&
+    matchingModifier.getStackCount() + modifier.getStackCount() > matchingModifier.getMaxStackCount()
+  );
 }
 
 function generateUsefulOptions(
@@ -155,14 +178,14 @@ function generateUsefulOptions(
     })[0];
     const option = generated ? applyBossRushRewardTierBonus(generated, party, rewardTierUpAttempts) : undefined;
     if (
-      !option
-      || !isBossRushModifierTypeUseful(option.type, party, variant)
-      || (excludeRecovery && isRecoveryType(option.type))
-      || excludedIds.has(option.type.id)
+      !option ||
+      !isBossRushModifierTypeUseful(option.type, party, variant) ||
+      (excludeRecovery && isRecoveryType(option.type)) ||
+      excludedIds.has(option.type.id)
     ) {
       continue;
     }
-    if (distinct.some(existing => existing.type.id === option.type.id || existing.type.group === option.type.group)) {
+    if (distinct.some((existing) => existing.type.id === option.type.id || existing.type.group === option.type.group)) {
       duplicates.push(option);
     } else {
       distinct.push(option);
@@ -217,6 +240,18 @@ export function getBossRushShopOptions(
     return [];
   }
   const config = getBossRushVariantConfig();
+  const metadata = getCurrentDailyRunMetadata();
+  const cacheKey = [
+    metadata?.canonicalSeed ?? globalScene.seed,
+    metadata?.algorithmVersion ?? config.generatorVersion,
+    config.variant,
+    waveIndex,
+    baseCost,
+  ].join("|");
+  const cached = bossRushShopCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
   let options: ModifierTypeOption[] = [];
   globalScene.executeWithSeedOffset(
     () => {
@@ -246,7 +281,7 @@ export function getBossRushShopOptions(
           options.push(fixedShopOption(recoveryId, baseCost * costMultipliers[recoveryId]));
         }
       }
-      options.forEach(option => {
+      options.forEach((option) => {
         if (!option.cost) {
           option.cost = Math.round(baseCost * Math.max(1, 2 ** (option.type.tier - ModifierTier.GREAT)));
         }
@@ -255,5 +290,8 @@ export function getBossRushShopOptions(
     BOSS_RUSH_CONFIG.generationOffset + 0x53484f50 + waveIndex,
     `${getCurrentDailyRunMetadata()?.canonicalSeed ?? globalScene.seed}|${config.variant}|shop`,
   );
+  bossRushShopCache.set(cacheKey, options);
   return options;
 }
+
+const bossRushShopCache = new Map<string, ModifierTypeOption[]>();

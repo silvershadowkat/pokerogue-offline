@@ -1,3 +1,4 @@
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Battle } from "#app/battle";
 import { globalScene } from "#app/global-scene";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
@@ -11,7 +12,7 @@ import { PokemonType } from "#enums/pokemon-type";
 import { SpeciesFormKey } from "#enums/species-form-key";
 import { SpeciesId } from "#enums/species-id";
 import { VariantTier } from "#enums/variant-tier";
-import { AttackTypeBoosterModifier } from "#modifiers/modifier";
+import { AttackTypeBoosterModifier, PersistentModifier } from "#modifiers/modifier";
 import { getModifierTypeFuncById, ModifierType, regenerateModifierPoolThresholds } from "#modifiers/modifier-type";
 import { CommandPhase } from "#phases/command-phase";
 import { SelectModifierPhase } from "#phases/select-modifier-phase";
@@ -41,6 +42,7 @@ import {
   getBossRushRewardOptions,
   getBossRushShopOptions,
   isBossRushModifierTypeUseful,
+  isBossRushShopModifierAtCapacity,
 } from "#system/daily-run/boss-rush-items";
 import { getDailyCompletionEggSpecs } from "#system/daily-run/daily-completion-reward";
 import { canonicalSeedFromText } from "#system/daily-run/daily-run-seed-utils";
@@ -51,7 +53,6 @@ import {
 } from "#system/daily-run/daily-run-types";
 import { GameManager } from "#test/framework/game-manager";
 import { NumberHolder } from "#utils/common";
-import { beforeAll, describe, expect, it, vi } from "vitest";
 
 describe("Boss Rush generation", () => {
   beforeAll(() => {
@@ -72,7 +73,7 @@ describe("Boss Rush generation", () => {
     for (let sample = 0; sample < 256; sample++) {
       const manifest = generateBossRushManifest(canonicalSeedFromText(`boss-rush-starters-${sample}`));
       expect(manifest.starters).toHaveLength(BOSS_RUSH_CONFIG.startingPartySize);
-      expect(new Set(manifest.starters.map(starter => starter.speciesId)).size).toBe(
+      expect(new Set(manifest.starters.map((starter) => starter.speciesId)).size).toBe(
         BOSS_RUSH_CONFIG.startingPartySize,
       );
       for (const starter of manifest.starters) {
@@ -80,12 +81,12 @@ describe("Boss Rush generation", () => {
         const form = species.forms[starter.formIndex];
         sawBelow450 ||= (form ?? species).baseTotal < 450;
         expect(
-          isFinalEvolution(species)
-            || isSingleStage(species)
-            || isLegendary(species)
-            || isMythical(species)
-            || isParadox(species)
-            || isSafeBossRushTransformation(form),
+          isFinalEvolution(species) ||
+            isSingleStage(species) ||
+            isLegendary(species) ||
+            isMythical(species) ||
+            isParadox(species) ||
+            isSafeBossRushTransformation(form),
         ).toBe(true);
         expect(starter.ivs).toEqual(new Array(6).fill(BOSS_RUSH_CONFIG.highIvs));
         expect(starter.moveset.length).toBeGreaterThanOrEqual(1);
@@ -118,7 +119,7 @@ describe("Boss Rush generation", () => {
     const shedinja = speciesDataRegistry.getSpecies(SpeciesId.SHEDINJA);
     const form = shedinja.forms[0] ?? shedinja;
     expect(form.baseStats[0]).toBe(1);
-    expect([0, 1, 2].map(index => form.getAbility(index))).toContain(AbilityId.WONDER_GUARD);
+    expect([0, 1, 2].map((index) => form.getAbility(index))).toContain(AbilityId.WONDER_GUARD);
   });
 
   it("obeys all ten boss pools, duplicate, shield, level, and modifier rules", () => {
@@ -126,8 +127,8 @@ describe("Boss Rush generation", () => {
     for (let sample = 0; sample < 32; sample++) {
       const manifest = generateBossRushManifest(canonicalSeedFromText(`boss-rush-bosses-${sample}`));
       expect(manifest.bosses).toHaveLength(BOSS_RUSH_CONFIG.bossCount);
-      expect(new Set(manifest.bosses.map(boss => boss.speciesId)).size).toBe(BOSS_RUSH_CONFIG.bossCount);
-      expect(new Set([...manifest.starters, ...manifest.bosses].map(config => config.speciesId)).size).toBe(
+      expect(new Set(manifest.bosses.map((boss) => boss.speciesId)).size).toBe(BOSS_RUSH_CONFIG.bossCount);
+      expect(new Set([...manifest.starters, ...manifest.bosses].map((config) => config.speciesId)).size).toBe(
         BOSS_RUSH_CONFIG.startingPartySize + BOSS_RUSH_CONFIG.bossCount,
       );
       manifest.bosses.forEach((boss, index) => {
@@ -151,7 +152,7 @@ describe("Boss Rush generation", () => {
         expect(boss.healthSegments).toBe(boss.shieldBreakpoints + 1);
         expect(boss.enemyModifierCount).toBe(BOSS_RUSH_CONFIG.enemyModifierCounts[index]);
         const legalMoves = getBossRushLegalMovePool(boss.speciesId, boss.formIndex);
-        expect(boss.moveset.every(move => legalMoves.includes(move))).toBe(true);
+        expect(boss.moveset.every((move) => legalMoves.includes(move))).toBe(true);
       });
     }
     expect(BOSS_RUSH_CONFIG.bossLevel).toBe(100);
@@ -169,7 +170,7 @@ describe("Boss Rush generation", () => {
     expect(finalBoss.enemyModifierCount).toBeGreaterThan(bossNine.enemyModifierCount);
     const rewardSettings = getBossRushRewardSettings();
     expect(rewardSettings.guaranteedModifierTiers).toHaveLength(BOSS_RUSH_CONFIG.rewardOptionCount);
-    expect(rewardSettings.guaranteedModifierTiers?.every(tier => tier >= ModifierTier.GREAT)).toBe(true);
+    expect(rewardSettings.guaranteedModifierTiers?.every((tier) => tier >= ModifierTier.GREAT)).toBe(true);
     expect(BOSS_RUSH_CONFIG.rewardTierUpAttempts).toBe(1);
   });
 
@@ -219,7 +220,18 @@ describe("Boss Rush generation", () => {
     expect(isBossRushModifierTypeUseful(item("RARE_CANDY"), party, BossRushVariant.NORMAL)).toBe(true);
     expect(isBossRushModifierTypeUseful(item("RARER_CANDY"), party, BossRushVariant.NORMAL)).toBe(true);
     expect(isBossRushModifierTypeUseful(item("POTION"), party, BossRushVariant.HARD)).toBe(false);
-    for (const id of ["ULTRA_BALL", "LURE", "MAP", "IV_SCANNER"]) {
+    for (const id of [
+      "ULTRA_BALL",
+      "LURE",
+      "MAP",
+      "IV_SCANNER",
+      "NUGGET",
+      "BIG_NUGGET",
+      "RELIC_GOLD",
+      "AMULET_COIN",
+      "GOLDEN_PUNCH",
+      "COIN_CASE",
+    ]) {
       expect(isBossRushModifierTypeUseful(item(id), party, BossRushVariant.NORMAL)).toBe(false);
       expect(isBossRushModifierTypeUseful(item(id), party, BossRushVariant.HARD)).toBe(false);
     }
@@ -242,7 +254,11 @@ describe("Boss Rush generation", () => {
     const previousBattle = globalScene.currentBattle;
     try {
       for (const variant of [BossRushVariant.NORMAL, BossRushVariant.HARD]) {
-        restoreDailyRunMetadata({ mode: "boss-rush", canonicalSeed: "stable-shop", bossRushVariant: variant });
+        restoreDailyRunMetadata({
+          mode: "boss-rush",
+          canonicalSeed: "stable-shop",
+          bossRushVariant: variant,
+        });
         globalScene.currentBattle = new Battle(globalScene.gameMode, {
           waveIndex: 1,
           battleType: BattleType.WILD,
@@ -252,24 +268,46 @@ describe("Boss Rush generation", () => {
         const first = getBossRushShopOptions(party, 1, 400);
         const replay = getBossRushShopOptions(party, 1, 400);
         expect(first).toHaveLength(BOSS_RUSH_CONFIG.shopOptionCount);
-        expect(first.map(option => [option.type.id, option.cost])).toEqual(
-          replay.map(option => [option.type.id, option.cost]),
+        expect(first.map((option) => [option.type.id, option.cost])).toEqual(
+          replay.map((option) => [option.type.id, option.cost]),
         );
-        expect(first.every(option => option.cost > 0)).toBe(true);
+        expect(replay).toBe(first);
+        expect(first.every((option) => option.cost > 0)).toBe(true);
         expect(first[0].type.id).toBe("RARE_CANDY");
         if (variant === BossRushVariant.NORMAL) {
           expect(first.slice(1)).toHaveLength(4);
           const excludedNormalIds = ["RARE_CANDY", ...getBossRushFixedShopItemIds(BossRushVariant.HARD, 1)];
-          expect(first.slice(1).every(option => !excludedNormalIds.includes(option.type.id))).toBe(true);
+          expect(first.slice(1).every((option) => !excludedNormalIds.includes(option.type.id))).toBe(true);
         } else {
           expect(first[1].type.id).not.toBe("RARE_CANDY");
-          expect(first.slice(2).map(option => option.type.id)).toEqual(["HYPER_POTION", "MAX_POTION", "FULL_RESTORE"]);
+          expect(first.slice(2).map((option) => option.type.id)).toEqual([
+            "HYPER_POTION",
+            "MAX_POTION",
+            "FULL_RESTORE",
+          ]);
         }
       }
     } finally {
       globalScene.currentBattle = previousBattle;
       clearDailyRunMetadata();
     }
+  });
+
+  it("blocks a Boss Rush paid modifier at its stack cap before engine conversion", () => {
+    const type = getModifierTypeFuncById("AMULET_COIN")();
+    type.id = "AMULET_COIN";
+    const capped = type.newModifier();
+    if (!(capped instanceof PersistentModifier)) {
+      throw new Error("expected a persistent modifier");
+    }
+    capped.stackCount = capped.getMaxStackCount();
+    const findModifier = vi.spyOn(globalScene, "findModifier").mockReturnValue(capped as never);
+    const purchase = type.newModifier();
+    if (!purchase) {
+      throw new Error("expected a purchasable modifier");
+    }
+    expect(isBossRushShopModifierAtCapacity(purchase)).toBe(true);
+    findModifier.mockRestore();
   });
 
   it("keeps free rewards separate and Great-or-better with the Boss-only tier bonus", () => {
@@ -293,7 +331,7 @@ describe("Boss Rush generation", () => {
       regenerateModifierPoolThresholds(party, ModifierPoolType.PLAYER);
       const rewards = getBossRushRewardOptions(party);
       expect(rewards).toHaveLength(5);
-      expect(rewards.every(option => option.type.tier >= ModifierTier.GREAT)).toBe(true);
+      expect(rewards.every((option) => option.type.tier >= ModifierTier.GREAT)).toBe(true);
     } finally {
       globalScene.currentBattle = previousBattle;
       clearDailyRunMetadata();
@@ -311,14 +349,18 @@ describe("Boss Rush generation", () => {
 
   it("lets the Egg engine normalize unsupported Vanillite tiers without skipping its unlock", () => {
     expect(speciesDataRegistry.getSpecies(SpeciesId.VANILLITE).hasVariants()).toBe(false);
-    const eggs = getDailyCompletionEggSpecs(SpeciesId.VANILLITE).map(spec => new Egg(spec));
-    expect(eggs.map(egg => egg.isShiny)).toEqual([false, true, true, true]);
-    expect(eggs.map(egg => egg.variantTier)).toEqual(new Array(4).fill(VariantTier.STANDARD));
+    const eggs = getDailyCompletionEggSpecs(SpeciesId.VANILLITE).map((spec) => new Egg(spec));
+    expect(eggs.map((egg) => egg.isShiny)).toEqual([false, true, true, true]);
+    expect(eggs.map((egg) => egg.variantTier)).toEqual(new Array(4).fill(VariantTier.STANDARD));
   });
 
   it("rejects Run through the no-turn-cost message path", () => {
     const seed = canonicalSeedFromText("boss-rush-no-run");
-    restoreDailyRunMetadata({ mode: "boss-rush", canonicalSeed: seed, bossRushVariant: BossRushVariant.HARD });
+    restoreDailyRunMetadata({
+      mode: "boss-rush",
+      canonicalSeed: seed,
+      bossRushVariant: BossRushVariant.HARD,
+    });
     const phase = new CommandPhase(0) as unknown as {
       handleRunCommand: () => boolean;
       queueShowText: (key: string) => void;
@@ -347,7 +389,11 @@ describe("Boss Rush generation", () => {
   it("preserves and defensively clones the complete manifest across resume metadata", () => {
     const seed = canonicalSeedFromText("boss-rush-resume");
     const manifest = generateBossRushManifest(seed);
-    restoreDailyRunMetadata({ mode: "boss-rush", canonicalSeed: seed, bossRushManifest: manifest });
+    restoreDailyRunMetadata({
+      mode: "boss-rush",
+      canonicalSeed: seed,
+      bossRushManifest: manifest,
+    });
     const restored = getCurrentDailyRunMetadata();
     expect(restored?.bossRushManifest).toEqual(manifest);
     restored!.bossRushManifest!.starters[0].ivs[0] = 0;

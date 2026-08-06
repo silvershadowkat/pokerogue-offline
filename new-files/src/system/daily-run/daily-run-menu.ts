@@ -1,9 +1,9 @@
+import i18next from "i18next";
 import { globalScene } from "#app/global-scene";
 import { parseDailySeed } from "#data/daily-seed/daily-seed-utils";
 import { UiMode } from "#enums/ui-mode";
 import type { OptionSelectItem } from "#types/ui-types";
 import type { DailySeedKeyboardConfig } from "#ui/handlers/daily-seed-keyboard-ui-handler";
-import i18next from "i18next";
 import { BOSS_RUSH_ALGORITHM_VERSION, BossRushVariant, generateBossRushManifest } from "./boss-rush";
 import {
   type DailyArchiveEntry,
@@ -16,11 +16,19 @@ import {
   CUSTOM_TEXT_ALGORITHM_VERSION,
   createCustomTextSeed,
   createOfflineDailySeed,
+  createOfflineDailySeedForDate,
   createRandomCanonicalSeed,
   getUtcDateKey,
   OFFLINE_DAILY_ALGORITHM_VERSION,
 } from "./daily-run-seed-utils";
 import { type DailyRunLaunchRequest, getDailyRunDisplayMetadata } from "./daily-run-types";
+import {
+  formatCalendarDate,
+  getOfflineDailyDays,
+  getOfflineDailyMonths,
+  getOfflineDailyYears,
+  getPreviousLocalCalendarDate,
+} from "./offline-daily-date";
 import {
   normalizeRandomRunWaveCount,
   RANDOM_RUN_ALGORITHM_VERSION,
@@ -184,23 +192,20 @@ function showOfficialDateList(context: DailyRunMenuContext, loaded: LoadedDailyA
 function openOfficialArchive(context: DailyRunMenuContext): void {
   inCleanMessageMode(() => globalScene.ui.showText(t("shadowDailyLoadingArchive"), 0));
   void loadOfficialDailyArchive()
-    .then(loaded => {
+    .then((loaded) => {
       showAcknowledgement(loaded.notice, () => showOfficialDateList(context, loaded));
     })
-    .catch(error => {
+    .catch((error) => {
       showError(error instanceof Error ? error.message : t("shadowDailyUnknownError"), () =>
         showDailyRunTypeMenu(context),
       );
     });
 }
 
-function openOfflineRun(context: DailyRunMenuContext): void {
-  const selectedInstant = new Date();
-  const date = getUtcDateKey(selectedInstant);
+function launchOfflineDate(context: DailyRunMenuContext, date: string, canonicalSeed: string, back: () => void): void {
   confirm(
     t("shadowDailyOfflineConfirm", { date }),
     () => {
-      const canonicalSeed = createOfflineDailySeed(selectedInstant);
       context.launch({
         seedOrConfig: canonicalSeed,
         metadata: {
@@ -212,7 +217,98 @@ function openOfflineRun(context: DailyRunMenuContext): void {
         },
       });
     },
-    () => showDailyRunTypeMenu(context),
+    back,
+  );
+}
+
+function openOfflineToday(context: DailyRunMenuContext): void {
+  const selectedInstant = new Date();
+  const date = getUtcDateKey(selectedInstant);
+  launchOfflineDate(context, date, createOfflineDailySeed(selectedInstant), () => showOfflineRunMenu(context));
+}
+
+function openOfflineDate(context: DailyRunMenuContext, year: number, month: number, day: number): void {
+  const date = formatCalendarDate({ year, month, day });
+  launchOfflineDate(context, date, createOfflineDailySeedForDate(date), () => showOfflineDayMenu(context, year, month));
+}
+
+const OFFLINE_DATE_VISIBLE_ROWS = 7;
+const OFFLINE_YEAR_PAGE_STEP = 10;
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function showOfflineYearMenu(context: DailyRunMenuContext): void {
+  const years = getOfflineDailyYears();
+	const options: OptionSelectItem[] = years.map((year) => ({
+    label: String(year),
+    handler: () => {
+      showOfflineMonthMenu(context, year);
+      return true;
+    },
+    onHover: () => globalScene.ui.showText(t("shadowDailyOfflineYearHelp"), 0),
+  }));
+  options.push(cancelOption(() => showOfflineRunMenu(context)));
+  showOptions(options, t("shadowDailyOfflineYearHelp"), 0, OFFLINE_DATE_VISIBLE_ROWS, OFFLINE_YEAR_PAGE_STEP);
+}
+
+function showOfflineMonthMenu(context: DailyRunMenuContext, year: number): void {
+	const options: OptionSelectItem[] = getOfflineDailyMonths(year).map((month) => ({
+    label: `${String(month).padStart(2, "0")}-${MONTH_LABELS[month - 1]}`,
+    handler: () => {
+      showOfflineDayMenu(context, year, month);
+      return true;
+    },
+    onHover: () => globalScene.ui.showText(t("shadowDailyOfflineMonthHelp"), 0),
+  }));
+  options.push(cancelOption(() => showOfflineYearMenu(context)));
+  showOptions(options, t("shadowDailyOfflineMonthHelp"), 0, OFFLINE_DATE_VISIBLE_ROWS, 6);
+}
+
+function showOfflineDayMenu(context: DailyRunMenuContext, year: number, month: number): void {
+	const options: OptionSelectItem[] = getOfflineDailyDays(year, month).map((day) => ({
+    label: String(day).padStart(2, "0"),
+    handler: () => {
+      openOfflineDate(context, year, month, day);
+      return true;
+    },
+    onHover: () => globalScene.ui.showText(t("shadowDailyOfflineDayHelp"), 0),
+  }));
+  options.push(cancelOption(() => showOfflineMonthMenu(context, year)));
+  showOptions(options, t("shadowDailyOfflineDayHelp"), 0, OFFLINE_DATE_VISIBLE_ROWS, 7);
+}
+
+export function showOfflineRunMenu(context: DailyRunMenuContext): void {
+  const yesterday = formatCalendarDate(getPreviousLocalCalendarDate());
+  showOptions(
+    [
+      {
+        label: t("shadowDailyOfflineToday"),
+        handler: () => {
+          openOfflineToday(context);
+          return true;
+        },
+        onHover: () => globalScene.ui.showText(t("shadowDailyOfflineTodayDescription"), 0),
+      },
+      {
+        label: t("shadowDailyOfflineYesterday"),
+        handler: () => {
+          launchOfflineDate(context, yesterday, createOfflineDailySeedForDate(yesterday), () =>
+            showOfflineRunMenu(context),
+          );
+          return true;
+        },
+        onHover: () => globalScene.ui.showText(t("shadowDailyOfflineYesterdayDescription"), 0),
+      },
+      {
+        label: t("shadowDailyOfflineChooseDate"),
+        handler: () => {
+          showOfflineYearMenu(context);
+          return true;
+        },
+        onHover: () => globalScene.ui.showText(t("shadowDailyOfflineChooseDateDescription"), 0),
+      },
+      cancelOption(() => showDailyRunTypeMenu(context)),
+    ],
+    t("shadowDailyOfflineMenuHelp"),
   );
 }
 
@@ -253,7 +349,7 @@ function openRandomRun(context: DailyRunMenuContext, waveCount: RandomRunWaveCou
 }
 
 export function showRandomRunVariantMenu(context: DailyRunMenuContext): void {
-  const options: OptionSelectItem[] = RANDOM_RUN_WAVE_COUNTS.map(waveCount => ({
+  const options: OptionSelectItem[] = RANDOM_RUN_WAVE_COUNTS.map((waveCount) => ({
     label: t("shadowDailyRandomWaveOption", { waves: waveCount }),
     handler: () => (openRandomRun(context, waveCount), true),
     onHover: () => globalScene.ui.showText(t("shadowDailyRandomWaveDescription", { waves: waveCount }), 0),
@@ -370,7 +466,7 @@ function showPreviousSeedList(context: DailyRunMenuContext, cursor = 0): void {
     return;
   }
   const safeCursor = Math.min(cursor, entries.length - 1);
-  const options: OptionSelectItem[] = entries.map(entry => ({
+  const options: OptionSelectItem[] = entries.map((entry) => ({
     label: historyLabel(entry),
     handler: () => {
       if (entry.mode === "boss-rush") {
@@ -422,7 +518,7 @@ function showPreviousSeedList(context: DailyRunMenuContext, cursor = 0): void {
 
 function openTextSeedKeyboard(context: DailyRunMenuContext): void {
   const config: DailySeedKeyboardConfig = {
-    onConfirm: value => {
+    onConfirm: (value) => {
       const result = createCustomTextSeed(value);
       confirmGeneratedSeed(
         result.canonicalSeed,
@@ -473,7 +569,7 @@ export function showDailyRunTypeMenu(context: DailyRunMenuContext): void {
     },
     {
       label: t("shadowDailyOffline"),
-      handler: () => (openOfflineRun(context), true),
+      handler: () => (showOfflineRunMenu(context), true),
       onHover: () => globalScene.ui.showText(t("shadowDailyOfflineDescription"), 0),
     },
     {

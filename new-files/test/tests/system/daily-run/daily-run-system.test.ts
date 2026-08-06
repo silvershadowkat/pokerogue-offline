@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DAILY_ARCHIVE_STORAGE_KEYS,
   loadOfficialDailyArchive,
@@ -22,6 +23,7 @@ import {
   canonicalSeedFromText,
   createCustomTextSeed,
   createOfflineDailySeed,
+  createOfflineDailySeedForDate,
   getUtcDateKey,
 } from "#system/daily-run/daily-run-seed-utils";
 import {
@@ -35,10 +37,18 @@ import {
   setPendingDailyRunLaunch,
 } from "#system/daily-run/daily-run-types";
 import {
+  formatCalendarDate,
+  getOfflineDailyDays,
+  getOfflineDailyMonths,
+  getOfflineDailyYears,
+  getPreviousLocalCalendarDate,
+  isValidOfflineDailyDate,
+  OFFLINE_DAILY_MIN_YEAR,
+} from "#system/daily-run/offline-daily-date";
+import {
   generateVersionedSeededContent,
   normalizeSeededRunCompatibility,
 } from "#system/daily-run/seeded-run-compatibility";
-import { afterEach, describe, expect, it, vi } from "vitest";
 
 const sampleEntries = [
   { date: "2026-07-10", format: "seed", seed: "3rqGvBfbCXh8tIgmhUCSRA==" },
@@ -47,8 +57,23 @@ const sampleEntries = [
     format: "daily-config",
     seed: "eeveepride26-10417",
     dailyConfig: {
-      starters: [{ speciesId: 133, formIndex: 1, variant: 2, moveset: [735, 24, 343, 39], nature: 3 }],
-      boss: { speciesId: 133, formIndex: 2, variant: 2, moveset: [741, 737, 740, 736], nature: 13, segments: 8 },
+      starters: [
+        {
+          speciesId: 133,
+          formIndex: 1,
+          variant: 2,
+          moveset: [735, 24, 343, 39],
+          nature: 3,
+        },
+      ],
+      boss: {
+        speciesId: 133,
+        formIndex: 2,
+        variant: 2,
+        moveset: [741, 737, 740, 736],
+        nature: 13,
+        segments: 8,
+      },
       biome: 1,
       luck: 14,
       startingMoney: 1330,
@@ -60,7 +85,7 @@ const sampleEntries = [
 ] as const;
 
 function archive(entries: readonly unknown[] = sampleEntries): Record<string, unknown> {
-  const dates = entries.map(entry => (entry as { date: string }).date).sort();
+  const dates = entries.map((entry) => (entry as { date: string }).date).sort();
   return {
     schemaVersion: 1,
     latestDate: dates.at(-1),
@@ -88,7 +113,7 @@ describe("Daily Run archive", () => {
 
   it("parses schema 1, sorts newest first, and computes its real bounds", () => {
     const parsed = parseDailyArchive(archive([...sampleEntries].reverse()));
-    expect(parsed.entries.map(entry => entry.date)).toEqual(["2026-07-10", "2026-07-08"]);
+    expect(parsed.entries.map((entry) => entry.date)).toEqual(["2026-07-10", "2026-07-08"]);
     expect(parsed.latestDate).toBe("2026-07-10");
     expect(parsed.earliestDate).toBe("2026-07-08");
     expect(parsed.entryCount).toBe(2);
@@ -98,7 +123,13 @@ describe("Daily Run archive", () => {
     ["malformed JSON", "{"],
     ["unsupported schema", { ...archive(), schemaVersion: 2 }],
     ["invalid real date", archive([{ date: "2026-02-30", format: "seed", seed: "x" }])],
-    ["duplicate date", { schemaVersion: 1, entries: [sampleEntries[0], { ...sampleEntries[0], seed: "different" }] }],
+    [
+      "duplicate date",
+      {
+        schemaVersion: 1,
+        entries: [sampleEntries[0], { ...sampleEntries[0], seed: "different" }],
+      },
+    ],
     ["unknown format", archive([{ date: "2026-07-10", format: "other", seed: "x" }])],
     ["empty seed", archive([{ date: "2026-07-10", format: "seed", seed: "" }])],
     ["inconsistent count", { ...archive(), entryCount: 99 }],
@@ -119,8 +150,16 @@ describe("Daily Run archive", () => {
     }
     const complete = JSON.parse(serializeSpecialDailyEntry(special));
     expect(complete.seed).toBe("eeveepride26-10417");
-    expect(complete.starters[0]).toMatchObject({ speciesId: 133, formIndex: 1, variant: 2 });
-    expect(complete.boss).toMatchObject({ speciesId: 133, formIndex: 2, segments: 8 });
+    expect(complete.starters[0]).toMatchObject({
+      speciesId: 133,
+      formIndex: 1,
+      variant: 2,
+    });
+    expect(complete.boss).toMatchObject({
+      speciesId: 133,
+      formIndex: 2,
+      segments: 8,
+    });
     expect(complete.biome).toBe(1);
     expect(complete.forcedWaves).toEqual([{ waveIndex: 23, speciesId: 243 }]);
     expect(complete.mysteryEncounters).toEqual([{ waveIndex: 13, type: 29 }]);
@@ -141,13 +180,25 @@ describe("Daily Run archive", () => {
   });
 
   it("keeps a valid cache when a remote response is invalid", async () => {
-    const validCached = JSON.stringify({ downloadedAt: 1_700_000_000_000, archive: archive() });
-    const storage = installStorage({ [DAILY_ARCHIVE_STORAGE_KEYS.current]: validCached });
+    const validCached = JSON.stringify({
+      downloadedAt: 1_700_000_000_000,
+      archive: archive(),
+    });
+    const storage = installStorage({
+      [DAILY_ARCHIVE_STORAGE_KEYS.current]: validCached,
+    });
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response("<html>error</html>", { headers: { "content-type": "text/html" } })),
+      vi.fn(
+        async () =>
+          new Response("<html>error</html>", {
+            headers: { "content-type": "text/html" },
+          }),
+      ),
     );
-    await expect(loadOfficialDailyArchive()).resolves.toMatchObject({ source: "cached" });
+    await expect(loadOfficialDailyArchive()).resolves.toMatchObject({
+      source: "cached",
+    });
     expect(storage.get(DAILY_ARCHIVE_STORAGE_KEYS.current)).toBe(validCached);
   });
 
@@ -158,7 +209,9 @@ describe("Daily Run archive", () => {
       .mockResolvedValueOnce(new Response("bad"))
       .mockResolvedValueOnce(new Response(JSON.stringify(archive())));
     vi.stubGlobal("fetch", fetchMock);
-    await expect(loadOfficialDailyArchive()).resolves.toMatchObject({ source: "built-in" });
+    await expect(loadOfficialDailyArchive()).resolves.toMatchObject({
+      source: "built-in",
+    });
   });
 
   it("never attempts the remote request on Switch", async () => {
@@ -166,7 +219,9 @@ describe("Daily Run archive", () => {
     (globalThis as Record<string, unknown>).__SILVERSHADOW_SWITCH_RUNTIME__ = true;
     const fetchMock = vi.fn(async (_input: RequestInfo | URL) => new Response(JSON.stringify(archive())));
     vi.stubGlobal("fetch", fetchMock);
-    await expect(loadOfficialDailyArchive()).resolves.toMatchObject({ source: "built-in" });
+    await expect(loadOfficialDailyArchive()).resolves.toMatchObject({
+      source: "built-in",
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0][0])).toBe("/daily-seeds.json");
   });
@@ -201,6 +256,12 @@ describe("Daily Run seed algorithms", () => {
     );
   });
 
+  it("keeps Today's existing seed while explicit calendar dates are stable", () => {
+    const instant = new Date("2026-08-06T14:00:00Z");
+    expect(createOfflineDailySeed(instant)).toBe(createOfflineDailySeedForDate(getUtcDateKey(instant)));
+    expect(createOfflineDailySeedForDate("2024-02-29")).toBe(createOfflineDailySeedForDate("2024-02-29"));
+  });
+
   it("distinguishes text, capitalization, punctuation, and internal spaces", () => {
     expect(createCustomTextSeed("ABCDEFG").canonicalSeed).not.toBe(createCustomTextSeed("ABCDEF").canonicalSeed);
     expect(createCustomTextSeed("SilverShadow").canonicalSeed).not.toBe(
@@ -211,14 +272,44 @@ describe("Daily Run seed algorithms", () => {
   });
 });
 
+describe("Offline Daily date picker model", () => {
+  const current = new Date(2026, 7, 6, 14);
+
+  it("lists the current local year first and 1900 last", () => {
+    const years = getOfflineDailyYears(current);
+    expect(years[0]).toBe(2026);
+    expect(years.at(-1)).toBe(OFFLINE_DAILY_MIN_YEAR);
+  });
+
+  it("restricts future months and days", () => {
+    expect(getOfflineDailyMonths(2026, current)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(getOfflineDailyMonths(2025, current)).toHaveLength(12);
+    expect(getOfflineDailyDays(2026, 8, current)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it("uses Gregorian month lengths and leap years", () => {
+    expect(getOfflineDailyDays(2024, 2, current)).toHaveLength(29);
+    expect(getOfflineDailyDays(2025, 2, current)).toHaveLength(28);
+    expect(getOfflineDailyDays(2025, 4, current)).toHaveLength(30);
+    expect(getOfflineDailyDays(2025, 1, current)).toHaveLength(31);
+    expect(isValidOfflineDailyDate({ year: 2024, month: 2, day: 29 }, current)).toBe(true);
+    expect(isValidOfflineDailyDate({ year: 2025, month: 2, day: 29 }, current)).toBe(false);
+  });
+
+  it("computes Yesterday across month and year boundaries in local calendar time", () => {
+    expect(formatCalendarDate(getPreviousLocalCalendarDate(new Date(2026, 0, 1, 0, 30)))).toBe("2025-12-31");
+    expect(formatCalendarDate(getPreviousLocalCalendarDate(new Date(2024, 2, 1, 23, 30)))).toBe("2024-02-29");
+  });
+});
+
 describe("Daily Run Text Seed keyboard", () => {
   it("uses a nine-column naming-screen grid with three pages and only canonical-seed symbols", () => {
     expect(DAILY_SEED_KEYBOARD_COLUMNS).toBe(9);
     const characters = ["lowercase", "uppercase", "numbersSymbols"]
-      .flatMap(page => buildDailySeedKeyboardRows(page as "lowercase" | "uppercase" | "numbersSymbols"))
-      .flatMap(row => row)
-      .filter(key => key.kind === "character")
-      .map(key => key.value);
+      .flatMap((page) => buildDailySeedKeyboardRows(page as "lowercase" | "uppercase" | "numbersSymbols"))
+      .flatMap((row) => row)
+      .filter((key) => key.kind === "character")
+      .map((key) => key.value);
     expect(characters.join("")).toBe("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=");
   });
 
@@ -226,7 +317,7 @@ describe("Daily Run Text Seed keyboard", () => {
     for (const page of ["lowercase", "uppercase", "numbersSymbols"] as const) {
       const rows = buildDailySeedKeyboardRows(page);
       expect(rows).toHaveLength(DAILY_SEED_KEYBOARD_ACTION_ROW + 1);
-      expect(rows[DAILY_SEED_KEYBOARD_ACTION_ROW].map(key => (key.kind === "action" ? key.action : null))).toEqual([
+      expect(rows[DAILY_SEED_KEYBOARD_ACTION_ROW].map((key) => (key.kind === "action" ? key.action : null))).toEqual([
         "page",
         null,
         "backspace",
@@ -274,10 +365,17 @@ describe("Previous Seed history", () => {
     recordDailySeedHistory({ mode: "previous", canonicalSeed: "previous" });
     recordDailySeedHistory({ mode: "random", canonicalSeed: "random", randomRunWaveCount: 10 }, 100);
     recordDailySeedHistory({ mode: "offline", canonicalSeed: "offline", selectedDate: "2026-08-05" }, 200);
-    recordDailySeedHistory({ mode: "custom-text", canonicalSeed: "text", friendlyTextSeed: "Monday" }, 300);
+    recordDailySeedHistory(
+      {
+        mode: "custom-text",
+        canonicalSeed: "text",
+        friendlyTextSeed: "Monday",
+      },
+      300,
+    );
     recordDailySeedHistory({ mode: "boss-rush", canonicalSeed: "boss-rush" }, 400);
     expect(JSON.parse(storage.get(DAILY_SEED_HISTORY_STORAGE_KEY) ?? "[]")).toHaveLength(5);
-    expect(readDailySeedHistory().map(entry => entry.canonicalSeed)).toEqual([
+    expect(readDailySeedHistory().map((entry) => entry.canonicalSeed)).toEqual([
       "boss-rush",
       "text",
       "offline",
@@ -302,12 +400,18 @@ describe("Previous Seed history", () => {
       usedAt: index + 1,
       useCount: 1,
     }));
-    installStorage({ [DAILY_SEED_HISTORY_STORAGE_KEY]: JSON.stringify(stored) });
+    installStorage({
+      [DAILY_SEED_HISTORY_STORAGE_KEY]: JSON.stringify(stored),
+    });
     expect(readDailySeedHistory()).toHaveLength(1000);
     expect(readDailySeedHistory()[0].canonicalSeed).toBe("seed-1004");
     recordDailySeedHistory({ mode: "random", canonicalSeed: "seed-1004" }, 2000);
-    expect(readDailySeedHistory()[0]).toMatchObject({ canonicalSeed: "seed-1004", usedAt: 2000, useCount: 1 });
-    expect(readDailySeedHistory().filter(entry => entry.canonicalSeed === "seed-1004")).toHaveLength(2);
+    expect(readDailySeedHistory()[0]).toMatchObject({
+      canonicalSeed: "seed-1004",
+      usedAt: 2000,
+      useCount: 1,
+    });
+    expect(readDailySeedHistory().filter((entry) => entry.canonicalSeed === "seed-1004")).toHaveLength(2);
     expect(readDailySeedHistory()).toHaveLength(1000);
   });
 });
@@ -343,11 +447,14 @@ describe("Daily Run save labels", () => {
 
 describe("Seeded run generator compatibility", () => {
   it("routes a v1 entry through v1 after v2 is introduced", () => {
-    const compatibility = normalizeSeededRunCompatibility({ mode: "random", algorithmVersion: "v1" })!;
+    const compatibility = normalizeSeededRunCompatibility({
+      mode: "random",
+      algorithmVersion: "v1",
+    })!;
     expect(
       generateVersionedSeededContent("same", compatibility, {
-        v1: seed => `${seed}:old`,
-        v2: seed => `${seed}:new`,
+        v1: (seed) => `${seed}:old`,
+        v2: (seed) => `${seed}:new`,
       }),
     ).toBe("same:old");
   });
@@ -366,7 +473,12 @@ describe("Seeded run generator compatibility", () => {
   });
 
   it("preserves Random Run length in compatibility settings", () => {
-    expect(normalizeSeededRunCompatibility({ mode: "random", randomRunWaveCount: 20 })).toMatchObject({
+    expect(
+      normalizeSeededRunCompatibility({
+        mode: "random",
+        randomRunWaveCount: 20,
+      }),
+    ).toMatchObject({
       generatorId: "random-daily",
       variant: "20",
       settings: { waveCount: 20 },
@@ -392,7 +504,10 @@ describe("Daily Run pending launch and resume metadata", () => {
   it("holds one generated seed unchanged through save-slot selection", () => {
     const request = {
       seedOrConfig: "k5exW8qrITeVWzIKS+3FFg==",
-      metadata: { mode: "random" as const, canonicalSeed: "k5exW8qrITeVWzIKS+3FFg==" },
+      metadata: {
+        mode: "random" as const,
+        canonicalSeed: "k5exW8qrITeVWzIKS+3FFg==",
+      },
     };
     setPendingDailyRunLaunch(request);
     expect(getPendingDailyRunLaunch()).toMatchObject(request);

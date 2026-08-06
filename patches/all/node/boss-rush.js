@@ -408,7 +408,11 @@ if (!reward.includes("getBossRushRewardOptions")) {
     reward,
     'import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/offline/claim-all-rewards-state";',
     `import { isBossRushMode, logBossRushRewards } from "#system/daily-run/boss-rush";
-import { getBossRushRewardOptions, getBossRushShopOptions } from "#system/daily-run/boss-rush-items";
+import {
+  getBossRushRewardOptions,
+  getBossRushShopOptions,
+  isBossRushShopModifierAtCapacity,
+} from "#system/daily-run/boss-rush-items";
 import { isPaidShopEnabled, logPostBattleTransition } from "#system/daily-run/daily-run-rules";
 import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/offline/claim-all-rewards-state";`,
     "Boss Rush reward diagnostics import",
@@ -551,6 +555,20 @@ import { clearPendingClaimAllReward, setPendingClaimAllReward } from "#system/of
     }
     return getPlayerModifierTypeOptions(`,
     "Boss Rush useful reward generation",
+  );
+  reward = replaceRequired(
+    reward,
+    `    const result = globalScene.addModifier(modifier, false, playSound, undefined, undefined, cost);`,
+    `    if (cost !== -1 && isBossRushMode() && isBossRushShopModifierAtCapacity(modifier)) {
+      globalScene.ui.playError();
+      if (modifierSelectCallback) {
+        this.resetModifierSelect(modifierSelectCallback);
+      }
+      return;
+    }
+
+    const result = globalScene.addModifier(modifier, false, playSound, undefined, undefined, cost);`,
+    "Boss Rush paid-shop stack-cap guard",
   );
   write(rewardPath, reward);
 }
