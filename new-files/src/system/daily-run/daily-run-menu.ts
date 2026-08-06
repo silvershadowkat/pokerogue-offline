@@ -5,6 +5,10 @@ import type { OptionSelectItem } from "#types/ui-types";
 import type { DailySeedKeyboardConfig } from "#ui/handlers/daily-seed-keyboard-ui-handler";
 import i18next from "i18next";
 import {
+  BOSS_RUSH_ALGORITHM_VERSION,
+  generateBossRushManifest,
+} from "./boss-rush";
+import {
   loadOfficialDailyArchive,
   serializeSpecialDailyEntry,
   type DailyArchiveEntry,
@@ -15,6 +19,7 @@ import {
   createCustomTextSeed,
   createOfflineDailySeed,
   createRandomDailySeed,
+  createRandomCanonicalSeed,
   CUSTOM_TEXT_ALGORITHM_VERSION,
   getUtcDateKey,
   OFFLINE_DAILY_ALGORITHM_VERSION,
@@ -221,6 +226,34 @@ function openRandomRun(context: DailyRunMenuContext): void {
   );
 }
 
+function createBossRushRequest(canonicalSeed: string): DailyRunLaunchRequest {
+  return {
+    seedOrConfig: canonicalSeed,
+    metadata: {
+      mode: "boss-rush",
+      canonicalSeed,
+      algorithmVersion: BOSS_RUSH_ALGORITHM_VERSION,
+      specialDailyConfig: false,
+      bossRushManifest: generateBossRushManifest(canonicalSeed),
+    },
+  };
+}
+
+function openBossRushRun(context: DailyRunMenuContext): void {
+  confirm(
+    t("shadowDailyBossRushConfirm"),
+    () => {
+      const canonicalSeed = createRandomCanonicalSeed(BOSS_RUSH_ALGORITHM_VERSION);
+      confirmGeneratedSeed(
+        canonicalSeed,
+        () => context.launch(createBossRushRequest(canonicalSeed)),
+        () => showDailyRunTypeMenu(context),
+      );
+    },
+    () => showDailyRunTypeMenu(context),
+  );
+}
+
 function historyModeLabel(entry: DailySeedHistoryEntry): string {
   return t(`shadowDailyHistoryMode${entry.mode}`);
 }
@@ -247,7 +280,9 @@ function historyHelp(entry: DailySeedHistoryEntry): string {
       ? t("shadowDailyPreviousOfflineDetail", { date: entry.selectedDate })
       : entry.mode === "custom-text"
         ? t("shadowDailyPreviousTextDetail", { text: entry.friendlyTextSeed })
-        : t("shadowDailyPreviousRandomDetail");
+        : entry.mode === "boss-rush"
+          ? t("shadowDailyPreviousBossRushDetail")
+          : t("shadowDailyPreviousRandomDetail");
   return `${detail}\n${t("shadowDailySeedValue", { seed: entry.canonicalSeed })}`;
 }
 
@@ -261,6 +296,10 @@ function showPreviousSeedList(context: DailyRunMenuContext, cursor = 0): void {
   const options: OptionSelectItem[] = entries.map((entry, index) => ({
     label: historyLabel(entry),
     handler: () => {
+      if (entry.mode === "boss-rush") {
+        context.launch(createBossRushRequest(entry.canonicalSeed));
+        return true;
+      }
       context.launch({
         seedOrConfig: entry.serializedDailyConfig ?? entry.canonicalSeed,
         metadata: {
@@ -354,6 +393,11 @@ export function showDailyRunTypeMenu(context: DailyRunMenuContext): void {
       label: t("shadowDailyRandom"),
       handler: () => (openRandomRun(context), true),
       onHover: () => globalScene.ui.showText(t("shadowDailyRandomDescription"), 0),
+    },
+    {
+      label: t("shadowDailyBossRush"),
+      handler: () => (openBossRushRun(context), true),
+      onHover: () => globalScene.ui.showText(t("shadowDailyBossRushDescription"), 0),
     },
     {
       label: t("shadowDailyCustom"),

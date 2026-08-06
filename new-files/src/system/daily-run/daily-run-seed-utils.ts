@@ -127,10 +127,14 @@ function secureRandomHex(): string {
   return `fallback-${highResolution}`;
 }
 
-export function createRandomDailySeed(now = new Date()): string {
+export function createRandomCanonicalSeed(algorithmVersion: string, now = new Date()): string {
   randomSeedCounter = (randomSeedCounter + 1) >>> 0;
-  const source = `${RANDOM_DAILY_ALGORITHM_VERSION}|${now.toISOString()}|${secureRandomHex()}|${randomSeedCounter}`;
+  const source = `${algorithmVersion}|${now.toISOString()}|${secureRandomHex()}|${randomSeedCounter}`;
   return canonicalSeedFromText(source);
+}
+
+export function createRandomDailySeed(now = new Date()): string {
+  return createRandomCanonicalSeed(RANDOM_DAILY_ALGORITHM_VERSION, now);
 }
 
 export function normalizeAndValidateExactSeed(input: string): string {

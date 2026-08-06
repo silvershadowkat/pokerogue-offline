@@ -3,7 +3,7 @@ import type { DailyRunMetadata } from "./daily-run-types";
 export const DAILY_SEED_HISTORY_STORAGE_KEY = "silvershadow_daily_seed_history_v1";
 export const MAX_DAILY_SEED_HISTORY_ENTRIES = 1000;
 
-export type DailySeedHistoryMode = "official" | "offline" | "random" | "custom-text";
+export type DailySeedHistoryMode = "official" | "offline" | "random" | "custom-text" | "boss-rush";
 
 export interface DailySeedHistoryEntry {
   canonicalSeed: string;
@@ -28,7 +28,11 @@ function getStorage(): Storage | undefined {
 }
 
 function isHistoryMode(value: unknown): value is DailySeedHistoryMode {
-  return value === "official" || value === "offline" || value === "random" || value === "custom-text";
+  return value === "official"
+    || value === "offline"
+    || value === "random"
+    || value === "custom-text"
+    || value === "boss-rush";
 }
 
 function validateEntry(value: unknown): DailySeedHistoryEntry | undefined {

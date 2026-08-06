@@ -246,7 +246,7 @@ describe("Daily Run Text Seed keyboard", () => {
 describe("Previous Seed history", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("stores Official, Offline, Random, and Text launches as newest-first run events", () => {
+  it("stores every seeded Daily mode as newest-first run events", () => {
     const storage = installStorage();
     recordDailySeedHistory({
       mode: "official",
@@ -260,9 +260,16 @@ describe("Previous Seed history", () => {
     recordDailySeedHistory({ mode: "random", canonicalSeed: "random" }, 100);
     recordDailySeedHistory({ mode: "offline", canonicalSeed: "offline", selectedDate: "2026-08-05" }, 200);
     recordDailySeedHistory({ mode: "custom-text", canonicalSeed: "text", friendlyTextSeed: "Monday" }, 300);
-    expect(JSON.parse(storage.get(DAILY_SEED_HISTORY_STORAGE_KEY) ?? "[]")).toHaveLength(4);
-    expect(readDailySeedHistory().map(entry => entry.canonicalSeed)).toEqual(["text", "offline", "random", "official"]);
-    expect(readDailySeedHistory()[3]).toMatchObject({
+    recordDailySeedHistory({ mode: "boss-rush", canonicalSeed: "boss-rush" }, 400);
+    expect(JSON.parse(storage.get(DAILY_SEED_HISTORY_STORAGE_KEY) ?? "[]")).toHaveLength(5);
+    expect(readDailySeedHistory().map(entry => entry.canonicalSeed)).toEqual([
+      "boss-rush",
+      "text",
+      "offline",
+      "random",
+      "official",
+    ]);
+    expect(readDailySeedHistory()[4]).toMatchObject({
       archiveSource: "cached",
       specialDailyConfig: true,
       serializedDailyConfig: '{"seed":"official"}',
@@ -300,6 +307,10 @@ describe("Daily Run save labels", () => {
     expect(getDailyRunSaveLabels({ mode: "custom-text", canonicalSeed: "d" })).toEqual({
       short: "Text",
       long: "Text Run",
+    });
+    expect(getDailyRunSaveLabels({ mode: "boss-rush", canonicalSeed: "e" })).toEqual({
+      short: "Boss Rush",
+      long: "Boss Rush Mode",
     });
   });
 });

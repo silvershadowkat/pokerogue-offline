@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-/** Install the SilverShadow four-mode Daily Run system into the pinned game source. */
+/** Install the SilverShadow Daily Run mode system into the pinned game source. */
 
 const fs = require("fs");
 const path = require("path");
@@ -479,10 +479,12 @@ Object.assign(locale, {
   shadowDailyOfficial: "Official Daily Run",
   shadowDailyOffline: "Offline Daily Run",
   shadowDailyRandom: "Random 50-Wave Run",
+  shadowDailyBossRush: "Boss Rush Mode",
   shadowDailyCustom: "Custom 50-Wave Run",
   shadowDailyOfficialDescription: "Download and browse official seed dates. Uses a cached or built-in archive if download fails.",
   shadowDailyOfflineDescription: "Play today's shared offline run. The same game version and UTC date use the same seed.",
   shadowDailyRandomDescription: "Generate a new random 50-wave Daily Run. A different seed is created each time.",
+  shadowDailyBossRushDescription: "Battle 10 powerful bosses with a random team of three level 100 Pokémon.",
   shadowDailyCustomDescription: "Reuse a previous seed or create a repeatable run from memorable text.",
   shadowDailyPreviousSeed: "Previous Seed",
   shadowDailyTextSeed: "Text Seed",
@@ -490,6 +492,7 @@ Object.assign(locale, {
   shadowDailyTextDescription: "Enter any memorable text. The same text will always create the same 50-wave run.",
   shadowDailyOfflineConfirm: "Start Offline Daily Run for {{date}} (UTC)?",
   shadowDailyRandomConfirm: "Generate a new random 50-wave Daily Run?",
+  shadowDailyBossRushConfirm: "Generate a new seeded 10-boss run?",
   shadowDailyGeneratedSeed: "Generated: {{seed}}\nStart this run?",
   shadowDailyLoadingArchive: "Loading the official Daily Run archive...",
   shadowDailySpecialIndicator: "[Special]",
@@ -511,9 +514,11 @@ Object.assign(locale, {
   shadowDailyPreviousOfflineDetail: "Offline Daily Run · UTC {{date}}",
   shadowDailyPreviousTextDetail: "Text Seed · {{text}}",
   shadowDailyPreviousRandomDetail: "Random 50-Wave Run",
+  shadowDailyPreviousBossRushDetail: "Boss Rush Mode",
   shadowDailyHistoryModeoffline: "Offline",
   shadowDailyHistoryModeofficial: "Official",
   shadowDailyHistoryModerandom: "Random",
+  "shadowDailyHistoryModeboss-rush": "Boss Rush",
   "shadowDailyHistoryModecustom-text": "Text",
   shadowDailyLaunchFailed: "The Daily Run could not be started. No save was changed.",
   shadowDailyKeyboardEmpty: "(empty)",
@@ -534,4 +539,4 @@ Object.assign(locale, {
 });
 write(localePath, `${JSON.stringify(locale, null, 2)}\n`);
 
-console.log("SilverShadow four-mode Daily Run system applied.");
+console.log("SilverShadow Daily Run mode system applied.");

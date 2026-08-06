@@ -1,9 +1,11 @@
+import type { BossRushManifest } from "./boss-rush";
 import { recordDailySeedHistory } from "./daily-run-history";
 
 export type DailyRunLaunchMode =
   | "official"
   | "offline"
   | "random"
+  | "boss-rush"
   | "custom-exact"
   | "custom-text"
   | "previous";
@@ -22,6 +24,8 @@ export interface DailyRunMetadata {
   /** Complete custom Daily configuration, including its outer seed, for exact resume/replay provenance. */
   serializedDailyConfig?: string | undefined;
   archiveDownloadedAt?: number | undefined;
+  /** Fully generated content freezes future Boss Rush encounters across save/resume. */
+  bossRushManifest?: BossRushManifest | undefined;
 }
 
 export interface DailyRunLaunchRequest {
@@ -44,6 +48,8 @@ export function getDailyRunSaveLabels(metadata?: DailyRunMetadata): DailyRunSave
       return { short: "Offline", long: "Offline Daily Run" };
     case "random":
       return { short: "Random", long: "Random Run" };
+    case "boss-rush":
+      return { short: "Boss Rush", long: "Boss Rush Mode" };
     case "custom-text":
       return { short: "Text", long: "Text Run" };
     default:
@@ -55,7 +61,26 @@ let pendingDailyRunLaunch: DailyRunLaunchRequest | undefined;
 let currentDailyRunMetadata: DailyRunMetadata | undefined;
 
 function cloneMetadata(metadata: DailyRunMetadata): DailyRunMetadata {
-  return { ...metadata };
+  const manifest = metadata.bossRushManifest;
+  return {
+    ...metadata,
+    bossRushManifest:
+      manifest == null
+        ? undefined
+        : {
+            ...manifest,
+            starters: manifest.starters.map(starter => ({
+              ...starter,
+              moveset: [...starter.moveset] as BossRushManifest["starters"][number]["moveset"],
+              ivs: [...starter.ivs],
+            })),
+            bosses: manifest.bosses.map(boss => ({
+              ...boss,
+              moveset: [...boss.moveset] as BossRushManifest["bosses"][number]["moveset"],
+              ivs: [...boss.ivs],
+            })),
+          },
+  };
 }
 
 export function setPendingDailyRunLaunch(request: DailyRunLaunchRequest): void {
