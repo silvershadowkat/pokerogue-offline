@@ -102,12 +102,12 @@ describe("Daily completion egg quartet", () => {
     expect(selectDailyCompletionRewardSpecies(states, "seed")).toBe(SpeciesId.CHARMANDER);
   });
 
-  it("does not choose a no-variant species while a full shiny quartet is supported", () => {
+  it("does not skip a locked starter that has no rare or epic shiny assets", () => {
     const states = [
       { speciesId: SpeciesId.VANILLITE, caughtAttr: 0n, hasVariants: false },
-      { speciesId: SpeciesId.BULBASAUR, caughtAttr: 0n, hasVariants: true },
+      { speciesId: SpeciesId.BULBASAUR, caughtAttr: completeShinyAttr, hasVariants: true },
     ];
-    expect(selectDailyCompletionRewardSpecies(states, "variant-safe-seed")).toBe(SpeciesId.BULBASAUR);
+    expect(selectDailyCompletionRewardSpecies(states, "unlock-everything-seed")).toBe(SpeciesId.VANILLITE);
   });
 
   it("creates normal, common-shiny, rare-shiny, and epic-shiny eggs for one species", () => {

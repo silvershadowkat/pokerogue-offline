@@ -49,14 +49,11 @@ export function selectDailyCompletionRewardSpecies(
   if (candidates.length === 0) {
     return;
   }
-  // Rare and epic shiny eggs are normalized back to the standard shiny by the
-  // engine when a species has no supported variant data. Prefer a species with
-  // all three game-supported shiny tiers so the quartet never contains three
-  // visually identical standard shinies while such a candidate exists.
-  const variantCapable = candidates.filter(state => state.hasVariants);
-  const supportedCandidates = variantCapable.length > 0 ? variantCapable : candidates;
-  const notAlreadyQueued = supportedCandidates.filter(state => !queuedSpecies.has(state.speciesId));
-  const pool = notAlreadyQueued.length > 0 ? notAlreadyQueued : supportedCandidates;
+  // Do not skip species without rare/epic variant assets. The Egg engine
+  // safely normalizes unsupported tiers to that species' standard shiny, and
+  // unlocking every missing starter remains the primary goal.
+  const notAlreadyQueued = candidates.filter(state => !queuedSpecies.has(state.speciesId));
+  const pool = notAlreadyQueued.length > 0 ? notAlreadyQueued : candidates;
   return pool[deterministicIndex(identity, pool.length)].speciesId;
 }
 

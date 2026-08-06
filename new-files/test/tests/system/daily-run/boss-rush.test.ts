@@ -284,6 +284,13 @@ describe("Boss Rush generation", () => {
     ]);
   });
 
+  it("lets the Egg engine normalize unsupported Vanillite tiers without skipping its unlock", () => {
+    expect(speciesDataRegistry.getSpecies(SpeciesId.VANILLITE).hasVariants()).toBe(false);
+    const eggs = getDailyCompletionEggSpecs(SpeciesId.VANILLITE).map(spec => new Egg(spec));
+    expect(eggs.map(egg => egg.isShiny)).toEqual([false, true, true, true]);
+    expect(eggs.map(egg => egg.variantTier)).toEqual(new Array(4).fill(VariantTier.STANDARD));
+  });
+
   it("rejects Run through the no-turn-cost message path", () => {
     const seed = canonicalSeedFromText("boss-rush-no-run");
     restoreDailyRunMetadata({ mode: "boss-rush", canonicalSeed: seed, bossRushVariant: BossRushVariant.HARD });
