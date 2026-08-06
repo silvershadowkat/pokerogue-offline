@@ -220,11 +220,11 @@ import { getCurrentDailyRunMetadata } from "#system/daily-run/daily-run-types";`
     gameOver,
     `            if (this.isVictory && newClear) {
               this.handleUnlocks();`,
-    `            if (this.isVictory && newClear) {
-              this.handleUnlocks();
-              if (globalScene.gameMode.isDaily) {
-                awardDailyCompletionEggQuartet();
-              }`,
+    `            if (this.isVictory && globalScene.gameMode.isDaily) {
+              awardDailyCompletionEggQuartet();
+            }
+            if (this.isVictory && newClear) {
+              this.handleUnlocks();`,
     "Daily completion egg award",
   );
   write(gameOverPath, gameOver);

@@ -32,11 +32,12 @@ Use a clean save slot and keep the generated seed visible for replay checks.
 
 ## Daily completion eggs
 
-1. Complete any Official, Offline, Custom, Random, or Boss Rush Daily mode for the first time.
+1. Complete any Official, Offline, Custom, Random, or Boss Rush Daily mode.
 2. Confirm exactly four event eggs are added for one starter species: non-shiny, standard shiny, rare shiny, and epic shiny.
 3. With locked starters remaining, confirm the target species is locked and a different unqueued locked species is preferred.
 4. With every starter unlocked, confirm the target is a species missing at least one game-supported shiny tier.
 5. Complete two variants that share a canonical seed and confirm their first-clear records do not collide.
+6. Replay and complete an already-cleared seed and confirm another quartet is still awarded.
 
 ## Random Run variants
 
