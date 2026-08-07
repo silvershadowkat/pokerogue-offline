@@ -2,15 +2,16 @@
 
 ## Scope and method
 
-This document records a behavioral analysis of the compiled Futuba build at
-`C:\Users\plim\Documents\Codex\Futuba` and maps the recovered behavior to the
-current PokéRogue source used by SilverShadow PokéRogue Offline.
+This document records a behavioral analysis of a locally supplied compiled
+Futuba build and maps the recovered behavior to the current PokéRogue source
+used by SilverShadow PokéRogue Offline.
 
 Futuba was treated only as a behavioral reference. The implementation in this
 repository consists of ordered, fail-fast JavaScript source patches; it does not
 copy Futuba's minified code or modify a production bundle.
 
-The comparison build was `C:\Users\plim\Documents\Codex\Latest`.
+The comparison build was a clean package generated from the same upstream
+source revision. Personal workstation paths are intentionally omitted.
 
 ## Build inventory
 

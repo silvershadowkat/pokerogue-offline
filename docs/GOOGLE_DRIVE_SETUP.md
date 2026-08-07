@@ -12,6 +12,10 @@ the Google Drive rows remain present on supported platforms, but Connect
 reports that OAuth is not configured. Nintendo Switch continues to omit the
 Drive rows because that build enforces a no-network runtime policy.
 
+The 2.0.0 Drive flow was manually tested on Android only. Android, iOS,
+Windows, macOS, and Linux share the backup format, but the non-Android native
+sign-in paths require additional hands-on release testing.
+
 ## 1. Create the Google Cloud project
 
 1. Open the [Google Cloud Console](https://console.cloud.google.com/).

@@ -33,6 +33,10 @@ recorded in the returned evidence and remain unknown.
 
 Every hardware statement below is limited to that tested configuration.
 
+The 2.0.0 optimization and playability passes used the default game with all
+optional gameplay mods disabled. The new Daily Run modes, Pokémon Editor, and
+individual sandbox combinations were not part of Switch release validation.
+
 ## Hardware-verified behavior
 
 The following behavior was observed on the real Switch:
@@ -66,9 +70,6 @@ The following behavior was observed on the real Switch:
   hardware-observed exclusive ranged-read end behavior.
 - The `item-count` bitmap font no longer blocks session continuation after the
   5x Poké Ball reward path.
-- The tester enabled the existing custom cheat/sandbox options and reported
-  that they worked after the game completed a long in-process reload. A
-  per-option verification matrix was not recorded.
 - Timestamped logs are created for each launch, so old logs do not need to be
   deleted.
 

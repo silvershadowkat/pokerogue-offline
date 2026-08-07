@@ -20,7 +20,7 @@ contiguous sections:
 | Shop | Free Shop Items, Free Rerolls, Money Multiplier |
 | Rewards | Reward Claim Mode, Max Luck (SSS) |
 | Progress | EXP Multiplier, Candy Jar Count, Pokemon Candy Multiplier, Candy Costs |
-| Team | 60 Starter Points, Allow Duplicate Starters, Starting Level, Unlock Starter on Select, All Starters Have Pokerus |
+| Team | 60 Starter Points, Allow Duplicate Starters, Starting Level, Unlock Starter on Select, All Starters Have Pokerus, Pokemon Editor |
 | Generation / Gacha | Free Egg Gacha Pulls, Rare Eggs, Instant Hatch, Shiny Rate, Always Shiny, Form Change Items |
 | Capture | Guaranteed Capture, Unlimited Poke Balls, Catch Trainer Pokemon, Catch Pokemon in Double Battles, Catch Bosses Through Shields |
 | Battle | Infinite Player HP, Infinite Player PP, Player OHKO, Never Miss, Always Critical Hit, Always Move First, No Charge / Recharge Turns, Run Never Fails, Full Heal After Every Battle |
@@ -29,6 +29,10 @@ contiguous sections:
 Each section has its own display-only heading row. These headings have no
 selectable options and navigation skips over them. The existing Google Drive,
 backup, clear-data, and update rows remain above the cheat catalog.
+
+The General tab also includes **Shop Animations**. Turning it Off removes the
+normal reward/shop reveal delay where the platform can safely reuse the current
+interface; Switch retains its guarded presentation path.
 
 ## Battle cheats
 
@@ -182,7 +186,7 @@ an exact value from 0 through 9,999. The picker uses the same UI/input path on
 keyboard, controller, touchscreen, Windows, Linux, macOS, iOS, Android, and
 Switch. Its large-list rendering is restricted to the visible window so
 moving the cursor does not rebuild thousands of off-screen labels. Up/Down
-moves by one and Left/Right jumps by 100 for practical controller and touch
+moves by one and Left/Right jumps by 10 for practical controller and touch
 navigation.
 
 The setting has two deliberate modes:

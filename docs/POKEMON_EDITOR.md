@@ -5,6 +5,10 @@ for selected starters and the active player party. It also provides a
 versioned saved-build library. The implementation deliberately keeps unlocks,
 legitimate starter moves, and normal battle/evolution rules authoritative.
 
+For the 2.0.0 release, hands-on testing was limited to Android. Other packaged
+platforms, including Switch, still require dedicated manual validation of the
+editor UI and long-run save/resume behavior.
+
 ## Enable the feature
 
 Open **Settings → Offline → Team → Pokemon Editor**. The setting updates live.
