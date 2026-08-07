@@ -1,7 +1,8 @@
 # v1.12.0.10-2.0.0
 
-SilverShadow 2.0.0 is the largest update to this fork so far. It adds the
-first public Nintendo Switch Alpha, a much larger set of offline sandbox
+SilverShadow 2.0.0 is the largest update to this fork so far. It is the second
+Nintendo Switch release and promotes the Switch port to Beta, while also adding
+a much larger set of offline sandbox
 options, a full Pokémon Editor, new Daily Run variants, Google Drive backups,
 and a redesigned touchscreen control system.
 
@@ -22,11 +23,11 @@ packaging, and adds an experimental Nintendo Switch homebrew package.
 
 - **Android** received the majority of gameplay and feature testing.
 - **Nintendo Switch** received focused startup, memory, rendering, controller,
-  save, audio, battle, and reward optimizations to reach a playable Alpha.
+  save, audio, battle, and reward optimizations for this second, Beta release.
 - **iOS, Windows, macOS, and Linux** are included, but were not personally
   tested to the same extent for this release.
 
-## Nintendo Switch Alpha
+## Nintendo Switch Beta
 
 The Switch release was a major focus of 2.0.0. The package uses a self-contained
 nx.js NRO and four uncompressed random-access asset packs so the game can load
@@ -38,8 +39,8 @@ battles, rewards, catching, saving, continuing a run, menus, readable fonts,
 BGM playback, and attached-controller input. A large amount of work went into
 reducing memory pressure and avoiding crashes during longer runs.
 
-The Switch build is still an **Alpha**. It can stall or crash, and long runs are
-not guaranteed to finish. The release playability testing was performed with
+The Switch build is now **Beta**, but it can still stall or crash, and long
+runs are not guaranteed to finish. The release playability testing was performed with
 all optional gameplay mods disabled. Daily Run variants, the Pokémon Editor,
 and individual sandbox combinations were not validated on Switch. Use
 title-override/application-memory mode, keep backups, and report reproducible
@@ -182,6 +183,10 @@ groups for portrait and landscape layouts.
   option to include the active run and a locally displayed last-backup time.
   This was tested on Android only. It is intended to work on configured
   Android, iOS, Windows, macOS, and Linux builds, but is excluded from Switch.
+  Backup and restore work, but the Google OAuth application is still in
+  **Testing** mode, so only the maintainer's allowlisted account can currently
+  connect. Public access will be enabled when the OAuth application is moved to
+  production.
 - Read-only **Gacha Calendar** showing the Legendary Gacha boost by date.
 - Release update notices and optional changelog pop-ups.
 - Mobile local save import/export fixes and a clearly warned **Clear All Data**
@@ -202,7 +207,7 @@ groups for portrait and landscape layouts.
   intermediate stat screens for each queued level. This is currently a
   presentation issue in the level-up flow rather than a reason to remove Rare
   Candy from the Boss Rush shop.
-- The Switch Alpha can still stall or crash, especially during long sessions.
+- The Switch Beta can still stall or crash, especially during long sessions.
   Some move effects or button prompts may also display incorrectly.
 
 ## Thanks

@@ -133,11 +133,13 @@ Current result:
 - [ ] Wi-Fi-off boot succeeds.
 - [ ] Missing-game-folder error is readable and logged.
 
-## Milestone 2 real-game bootstrap and Alpha baseline
+## Milestone 2 real-game bootstrap and Beta baseline
 
-Milestone 2 is code-verified and hardware-tested. The port entered Alpha on
-2026-07-29 after the actual SilverShadow-patched PokéRogue `1.12.0.10` Vite
-graph reached battles and persisted a run on real Switch hardware. The graph
+Milestone 2 is code-verified and hardware-tested. The first release established
+the playable hardware baseline; version 2.0.0 is the second Switch release and
+promotes the port to Beta. The actual SilverShadow-patched PokéRogue
+`1.12.0.10` Vite graph reached battles and persisted a run on real Switch
+hardware. The graph
 is packaged externally and consolidated into `game/switch-entry.js` without
 unresolved JavaScript imports. The NRO validates schema-2 metadata and hashes,
 installs the narrow compatibility layer, reads that external entry, and
@@ -205,6 +207,6 @@ Known compatibility failures:
 - a later Plus press during a rival battle ended in a native Switch software
   crash immediately after the `beforeunload` interception log entry.
 
-See [`SWITCH_ALPHA_STATUS.md`](SWITCH_ALPHA_STATUS.md) for the complete
+See [`SWITCH_BETA_STATUS.md`](SWITCH_BETA_STATUS.md) for the complete
 hardware evidence, resolved-blocker history, known bugs, and next diagnostic
 order.

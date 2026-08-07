@@ -180,16 +180,16 @@ manifest and version information, full error stacks, active shims, requested
 paths, and memory information when available. Old logs do not need to be
 deleted between controlled test runs. Never delete `saves/`.
 
-## Alpha continuation workflow
+## Beta continuation workflow
 
-The 2026-07-29 Alpha evidence and next investigation order are recorded in
-`docs/SWITCH_ALPHA_STATUS.md`. Start continued troubleshooting from the merged
+The real-hardware evidence and next investigation order are recorded in
+`docs/SWITCH_BETA_STATUS.md`. Start continued troubleshooting from the merged
 `main` baseline on a new branch:
 
 ```powershell
 git switch main
 git pull --ff-only origin main
-git switch -c fix/switch-alpha-runtime
+git switch -c fix/switch-beta-runtime
 ```
 
 Keep each hardware iteration narrow:
@@ -202,7 +202,7 @@ Keep each hardware iteration narrow:
    `game/manifest.json`, and `SHA256SUMS.txt`.
 6. Never overwrite or delete the tester's `saves/` directory.
 
-The first Alpha continuation should add memory snapshots and Phaser
+The next Beta continuation should add memory snapshots and Phaser
 loader-error diagnostics. It should then reproduce the Plus crash without the
 preceding all-cheats reload and verify animation texture registration before
 changing renderer behavior.

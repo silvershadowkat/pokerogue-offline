@@ -1,6 +1,6 @@
 # SilverShadow PokéRogue Offline
 
-An unofficial PokéRogue Offline fork with SilverShadow Android branding, optional offline sandbox modifiers, quality-of-life improvements, and an experimental Nintendo Switch port.
+An unofficial PokéRogue Offline fork with SilverShadow Android branding, optional offline sandbox modifiers, quality-of-life improvements, and a Nintendo Switch Beta port.
 
 > [!IMPORTANT]
 > This is not an official PokéRogue or PokéRogue Offline release. It is a personal fan-made fork intended for offline use.
@@ -13,11 +13,12 @@ artifact from the repository's
 
 Before installing an update, export your save data and active session as a precaution.
 
-The Switch build is an experimental homebrew Alpha. Read the installation and known-issues sections below before using it.
+The Switch build is an experimental homebrew Beta. Read the installation and known-issues sections below before using it.
 
 ## v2.0.0 Highlights
 
-Version 2.0.0 adds the first public Nintendo Switch Alpha, a full Pokémon
+Version 2.0.0 is the second Nintendo Switch release and promotes the port to
+Beta. It also adds a full Pokémon
 Editor, a redesigned Daily Run menu with multiple deterministic modes, Daily
 completion egg quartets, Google Drive backup/restore, a custom haptic and
 tilting touchscreen D-pad, and a much larger organized Offline sandbox.
@@ -336,6 +337,13 @@ Google Drive backup/restore was tested on Android only for 2.0.0. Treat local
 export/import as the primary portable backup until other platforms receive
 equivalent hands-on validation.
 
+Backup and restore are working, but the Google OAuth application is currently
+in Google's **Testing** mode. Only accounts explicitly added to the tester
+allowlist can connect right now, so the released integration currently works
+only for the maintainer's approved account. Public access will be enabled when
+the OAuth application is moved to production. This restriction is at the
+Google sign-in layer; it does not change the local backup format.
+
 ## Build Process
 
 Android builds are produced through GitHub Actions.
@@ -373,12 +381,12 @@ Important directories include:
 
 The patch runner intentionally stops when an expected upstream code anchor cannot be found. This prevents a build from silently producing a partially patched or unpredictable application.
 
-## Nintendo Switch Alpha
+## Nintendo Switch Beta
 
-This repository contains an experimental Nintendo Switch homebrew port built with [nx.js](https://github.com/TooTallNate/nx.js) and Phaser. Android builds are separate and are not affected by the Switch port.
+This repository contains a Nintendo Switch homebrew Beta built with [nx.js](https://github.com/TooTallNate/nx.js) and Phaser. Android builds are separate and are not affected by the Switch port.
 
 > [!WARNING]
-> The Switch build remains **Alpha**. Back up your saves, expect occasional stalls, and do not treat a successful build or a short play session as proof of long-session stability.
+> This second Switch release is now **Beta**, but it can still stall or crash. Back up your saves and do not treat a successful build or a short play session as proof of long-session stability.
 
 Switch optimization and playability testing for this release used the default
 game with all optional gameplay mods disabled. The Daily Run variants, Pokémon
@@ -452,7 +460,7 @@ Normal gameplay has been smooth enough in the sessions tested so far, but many c
 
 Extreme reward-cheat use can exhaust native memory. In particular, repeatedly using infinite/free rerolls or generating and claiming many reward sets without leaving the reward phase can eventually block further rerolls, cause severe slowdown, or crash the homebrew process. The build includes a memory guard to stop rerolls before the most dangerous point, but it cannot make unlimited stress use safe. Save, fully close, and relaunch if memory pressure develops.
 
-Other Alpha limitations include:
+Other Beta limitations include:
 
 - Occasional loading stalls or native crashes may still occur.
 - Some move effects may still show a missing-texture placeholder or another visual irregularity.
@@ -487,7 +495,7 @@ Detailed Switch information is available in:
 - [`docs/SWITCH_PORT.md`](docs/SWITCH_PORT.md)
 - [`docs/SWITCH_NXJS_COMPATIBILITY.md`](docs/SWITCH_NXJS_COMPATIBILITY.md)
 - [`docs/SWITCH_INSTALL.md`](docs/SWITCH_INSTALL.md)
-- [`docs/SWITCH_ALPHA_STATUS.md`](docs/SWITCH_ALPHA_STATUS.md)
+- [`docs/SWITCH_BETA_STATUS.md`](docs/SWITCH_BETA_STATUS.md)
 
 ## Updating From Upstream
 

@@ -3,9 +3,10 @@
 ## Status
 
 This branch implements Milestone 0, a hardware-validated Milestone 1 proof of
-concept, and a hardware-tested Milestone 2 real-game package. The port entered
-Alpha on 2026-07-29 after the real SilverShadow-patched PokéRogue `1.12.0.10`
-build reached sustained gameplay on a Switch OLED. The title screen, starter
+concept, and a hardware-tested Milestone 2 real-game package. The first Switch
+release established the playable baseline; version 2.0.0 is the second Switch
+release and promotes the port to Beta. The real SilverShadow-patched PokéRogue
+`1.12.0.10` build reached sustained gameplay on a Switch OLED. The title screen, starter
 selection, battles, rewards, Pokédex, readable text, attached-controller input,
 and save/session persistence have been observed.
 
@@ -20,7 +21,7 @@ overlap, caps the Skia GPU cache, performs cooldown-limited garbage collection
 at safe boundaries under measured pressure, and records frame/event-loop stalls.
 The result still needs extended hardware validation. The authoritative evidence,
 resolved blockers, known bugs, and next investigation order are in
-[`SWITCH_ALPHA_STATUS.md`](SWITCH_ALPHA_STATUS.md).
+[`SWITCH_BETA_STATUS.md`](SWITCH_BETA_STATUS.md).
 
 The final architecture remains a direct nx.js NRO. It does not use the Android
 APK, Nintendo WebApplet, a browser applet, a local HTTP server, or Nintendo's
@@ -290,7 +291,7 @@ Code-verified in Milestone 2:
   verify;
 - exact-key compiled reuse works.
 
-Hardware-verified in the Alpha baseline:
+Hardware-verified in the Beta baseline:
 
 - the real compiled entry evaluates and Phaser creates the WebGL game;
 - the title screen and starter selection render at the correct 1280x720
@@ -304,7 +305,7 @@ Hardware-verified in the Alpha baseline:
   reload.
 
 These claims apply only to the returned Switch OLED handheld evidence. See
-`SWITCH_ALPHA_STATUS.md` for limitations and unverified configurations.
+`SWITCH_BETA_STATUS.md` for limitations and unverified configurations.
 
 The later indexed asset-pack layout and beta.6 ranged-read correction have
 launched on the tested hardware. See
@@ -312,7 +313,7 @@ launched on the tested hardware. See
 
 ## Next milestones
 
-The next branch should begin from the merged Alpha baseline and keep the
+The next branch should begin from the merged Beta baseline and keep the
 hardware-driven, one-blocker-at-a-time workflow.
 
 The immediate proof gates are:
@@ -329,4 +330,4 @@ The immediate proof gates are:
 
 Do not rename the internal `milestone2-real-game` schema or timestamped
 `milestone2-*.log` format as part of the maturity-label change. They identify
-the proven package generation and remain the Alpha baseline.
+the proven package generation and remain the Beta baseline.
