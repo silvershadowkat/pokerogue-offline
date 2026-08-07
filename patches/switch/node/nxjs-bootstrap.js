@@ -2391,6 +2391,10 @@ const rerollPhaseTransitionAnchor = `    globalScene.reroll = true;
       "SelectModifierPhase",
       this.rerollCount + 1,
       this.typeOptions.map(o => o.type?.tier).filter(t => t !== undefined) as ModifierTier[],
+      undefined,
+      false,
+      [],
+      this.shopOptions,
     );
     globalScene.ui.clearText();
     globalScene.ui.setMode(UiMode.MESSAGE).then(() => super.end());
@@ -2428,6 +2432,10 @@ const rerollPhaseTransitionReplacement = `    const nextRerollCount = this.rerol
         "SelectModifierPhase",
         nextRerollCount,
         nextModifierTiers,
+        undefined,
+        false,
+        [],
+        this.shopOptions,
       );
       globalScene.ui.clearText();
       globalScene.ui.setMode(UiMode.MESSAGE).then(() => super.end());
@@ -2562,6 +2570,7 @@ const multiRewardCompleteReplacement = `  private completeMultiReward(
       modifierSelectCallback,
       this.getRerollCost(globalScene.lockModifierTiers),
       [...this.claimedRewardIndices],
+      this.shopOptions,
     ]);
     (globalThis as any).__SILVERSHADOW_DIAGNOSTICS__?.checkpoint?.("reward:multi-reused-ui", {
       rewardIndex,

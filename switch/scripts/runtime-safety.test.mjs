@@ -149,6 +149,21 @@ test("instant shop presentation reuses live cards off Switch without replacing S
   assert.match(gamePatch, /switchRerollSafetyLimitMiB = 2600/);
 });
 
+test("Switch reward rewrites preserve the shared stable paid-shop options", () => {
+  assert.match(
+    gamePatch,
+    /const rerollPhaseTransitionAnchor = `[\s\S]*?this\.typeOptions\.map[\s\S]*?undefined,[\s\S]*?false,[\s\S]*?\[\],[\s\S]*?this\.shopOptions,[\s\S]*?\);`;/,
+  );
+  assert.match(
+    gamePatch,
+    /const rerollPhaseTransitionReplacement = `[\s\S]*?"SelectModifierPhase",[\s\S]*?nextModifierTiers,[\s\S]*?undefined,[\s\S]*?false,[\s\S]*?\[\],[\s\S]*?this\.shopOptions,[\s\S]*?\);/,
+  );
+  assert.match(
+    gamePatch,
+    /uiHandler\.show\(\[[\s\S]*?\[\.\.\.this\.claimedRewardIndices\],[\s\S]*?this\.shopOptions,[\s\S]*?\]\);/,
+  );
+});
+
 test("the compiled game cache tracks the synchronized Daily archive", () => {
   assert.match(buildGame, /"work\/generated\/daily-seeds\.json"/);
 });
