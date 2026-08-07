@@ -336,14 +336,22 @@ describe("Pokemon Editor menu integration", () => {
   it("uses bounded number navigation and arrow-safe page-sized list navigation", () => {
     const optionSource = readSource("ui", "handlers", "base-option-select-ui-handler.ts");
     const editorUiSource = readSource("system", "pokemon-editor", "pokemon-editor-ui.ts");
+    const dailyRunMenuSource = readSource("system", "daily-run", "daily-run-menu.ts");
 
     expect(optionSource).toContain("const pageStepTarget");
+    expect(optionSource).toContain("this.config.options.length <= this.config.maxOptions");
+    expect(optionSource).toContain("const lastSelectableCursor = Math.max(0, this.unskippedIndices.length - 1)");
+    expect(optionSource).toContain("Math.trunc(fullCursor)");
     expect(optionSource).toContain("const targetOptionIndex");
     expect(optionSource).toContain("this.cursor = targetOptionIndex - this.scrollCursor");
     expect(optionSource).toContain("this.config?.wrapNavigation !== false");
     expect(editorUiSource).toContain("pageStep: 10");
     expect(editorUiSource).toContain("pageStepMaxIndex: maximum - minimum");
     expect(editorUiSource).toContain("options.length > maxOptions ? Math.max(1, maxOptions - 2) : undefined");
+    expect(dailyRunMenuSource).toContain(
+      "const OFFLINE_DATE_PAGE_STEP = Math.max(1, OFFLINE_DATE_VISIBLE_ROWS - 2)",
+    );
+    expect(dailyRunMenuSource).not.toContain("const OFFLINE_YEAR_PAGE_STEP = 10");
   });
 
   it("keeps editor lists readable and exposes saved-build filtering", () => {

@@ -1,48 +1,81 @@
 # SilverShadow PokéRogue Offline
 
-An unofficial PokéRogue Offline fork with SilverShadow Android branding, optional offline sandbox modifiers, quality-of-life improvements, and an experimental Nintendo Switch port.
+An unofficial PokéRogue Offline fork with SilverShadow Android branding, optional offline sandbox modifiers, quality-of-life improvements, and a Nintendo Switch Beta port.
 
 > [!IMPORTANT]
 > This is not an official PokéRogue or PokéRogue Offline release. It is a personal fan-made fork intended for offline use.
 
 ## Download
 
-Download the latest Android APK or Nintendo Switch Alpha `-switch.zip` from the repository's [Releases page](https://github.com/silvershadowkat/pokerogue-offline/releases).
+Download the latest Android, iOS, Windows, macOS, Linux, or Nintendo Switch
+artifact from the repository's
+[Releases page](https://github.com/silvershadowkat/pokerogue-offline/releases).
 
 Before installing an update, export your save data and active session as a precaution.
 
-The Switch build is an experimental homebrew Alpha. Read the installation and known-issues sections below before using it.
+The Switch build is an experimental homebrew Beta. Read the installation and known-issues sections below before using it.
 
 ## v2.0.0 Highlights
 
-Version 2.0.0 expands the Offline sandbox with starter customization, reward
-generation, progression, and battle-debugging options. It also adds the first
-public Nintendo Switch Alpha package, including:
+Version 2.0.0 is the second Nintendo Switch release and promotes the port to
+Beta. It also adds a full Pokémon
+Editor, a redesigned Daily Run menu with multiple deterministic modes, Daily
+completion egg quartets, Google Drive backup/restore, a custom haptic and
+tilting touchscreen D-pad, and a much larger organized Offline sandbox.
 
-- A self-contained nx.js NRO with a SilverShadow Homebrew Menu icon.
-- Full offline PokéRogue gameplay files packaged into four random-access asset containers instead of roughly 34,000 loose files.
-- Hardware-tested fixes for controller input, rendering, fonts, local saves, BGM playback, reward selection, and returning from targeted rewards.
-- Clear startup diagnostics and checks for missing or damaged asset packs.
+The exact release title is **v1.12.0.10-2.0.0**. See the complete, copy-ready
+[2.0.0 release notes](docs/RELEASE_NOTES_2.0.0.md).
 
-The expanded sandbox includes:
+> [!WARNING]
+> Testing was limited to one primary tester: mostly Android, with occasional
+> Nintendo Switch hardware testing. Daily Run modes and the Pokémon Editor were
+> tested only on Android. Switch playability testing used the default game with
+> optional gameplay mods disabled. Other packaged platforms have not received
+> equivalent hands-on testing, so bugs should be expected.
 
-- **Duplicate Starters** supports up to six independently customized copies of
-  the same species, including separate moves, gender, nature, ability, form,
-  shiny variant, Tera type, and passive selection.
-- **Reward Claim Mode** combines the mutually exclusive Default, Claim All, and
-  Infinite reward behaviors into one setting.
-- **Infinite Player HP**, **Infinite Player PP**, and **Player OHKO** provide
-  guarded battle-debugging tools that preserve enemy behavior, boss shields,
-  scripted boss limits, and normal move resolution.
-- **Starting Level**, **All Starters Have Pokérus**, and **Unlock Starter on
-  Select** add targeted starter setup controls.
-- **Pokémon Candy Multiplier** now offers Default, 2x, 5x, 10x, 50x, and 100x;
-  **Candy Costs** separately offers Default, Rebalanced, and Free costs.
-- **Shiny Rate**, **Always Shiny**, **Rare Eggs**, **Instant Hatch**, and **Form
-  Change Items** provide configurable generation and progression shortcuts.
+### Daily Run modes
 
-The experimental **Fast Reward UI** option was removed from v2.0.0. Reward
-claims use the normal game interface and animation flow for stability.
+**New Game → Daily Run** now opens a mode picker:
+
+- **Official Daily Run** browses available official runs by date and can fall
+  back to validated cached or packaged entries while offline.
+- **Offline Daily Run** offers Today, Yesterday, or a calendar date. The same
+  date always produces the same deterministic run.
+- **Boss Rush** and **Boss Rush (H)** are ten consecutive level-100 bosses with
+  three level-100 starters, escalating shields, five Great-or-better free
+  rewards, and five separate paid shop items after bosses 1–9. Normal fully
+  heals between bosses; Hard preserves HP, fainting, PP use, and major status.
+- **Random Run** offers Random5, Random10, Random20, Random30, Random50, and
+  Random100. The chosen final wave is a one-shield boss, while longer variants
+  retain Daily-style trainers and intermediate bosses.
+- **Custom Run** contains Previous Seeds and Text Seed. The controller/touch
+  keyboard includes lowercase, uppercase, numbers, symbols, Backspace, Clear,
+  Confirm, and Cancel.
+
+Every completed Daily Run mode, including Text Seed, awards four eggs for one
+species: normal plus standard, rare, and epic shiny. Locked starters are
+prioritized; once all starters are unlocked, species with missing supported
+shiny forms are prioritized.
+
+Previous Seeds records the mode, variant, canonical seed, generator version,
+and required reconstruction data so future generator updates do not silently
+change saved runs.
+
+### Pokémon Editor
+
+Open **Settings → Offline → Team → Pokémon Editor** and choose Off, Use Saved
+Builds, or Full Editor. It works on the starter screen and on the active party
+at safe between-battle reward/shop phases.
+
+Full Editor supports safe permanent forms, levels, nature, ability, gender,
+shiny tier, IVs, friendship, Pokérus, ordered moves, unrestricted registry move
+browsing, legitimate quick move editing, undo/restore, and reusable saved
+builds. Builds can be preferred, renamed, duplicated, updated, deleted,
+filtered, exported/imported, and applied independently to duplicate starters.
+Active-party editing is blocked during battle.
+
+See [Pokemon Editor](docs/POKEMON_EDITOR.md) for the complete behavior and
+limitations. This feature was tested only on Android for 2.0.0.
 
 ## Features
 
@@ -51,17 +84,15 @@ claims use the normal game interface and animation flow for stability.
 - Play without a constant internet connection after the game files are installed.
 - Save data is stored locally on the device.
 - User data and active sessions can be manually imported and exported.
-- The app first tries PokéRogue's official Daily Run API directly, then this fork's dated seed feed, and finally the
-  deterministic UTC-date seed used by upstream offline mode. A short in-game message identifies which source was used.
+- The expanded Daily Run menu provides official archived dates, deterministic
+  offline dates, multiple Random Run lengths, two Boss Rush variants, Text
+  Seeds, and replayable Previous Seeds.
 - The app is built from current PokéRogue source with SilverShadow patches applied during the build.
 
-The **Publish Daily Run Seed** workflow requests the seed from PokéRogue's official API several times during the first
-three UTC hours and publishes a dated JSON payload to this fork's own `seed` branch. To avoid both Cloudflare's command-line
-request block and browser CORS, the workflow adds the official game headers through Chrome DevTools and navigates Chrome
-directly to the first-party API response. It does not use Scooom's server or another offline seed mirror. If the
-official service remains unavailable, it publishes a marked, non-cacheable offline fallback that a later scheduled run
-can replace. After enabling Actions on a new fork, run that workflow once manually to create the branch immediately.
-The app reads this fork's raw `seed` branch URL.
+The official-date list uses a validated archive with downloaded, cached, and
+packaged fallback sources. The game identifies the source in its UI without
+requiring the player to understand how the archive is maintained. See
+[Daily Run Modes](docs/DAILY_RUN_MODES.md) for the technical behavior.
 
 ### SilverShadow Android Branding
 
@@ -116,6 +147,7 @@ All sandbox options:
 | **Candy Costs** | Uses Default, Rebalanced (25%, rounded up), or Free passive, point-reduction, and same-species egg costs. |
 | **60 Starter Points** | Raises the starter selection point limit to 60. |
 | **Allow Duplicate Starters** | Allows up to six independently customized copies of a species when point and challenge rules permit them. |
+| **Pokémon Editor** | Selects Off, Use Saved Builds, or Full Editor for starter and safe between-battle party editing. |
 | **All Starters Have Pokérus** | Gives every selected starter record Pokérus, including every duplicate copy. |
 | **Starting Level** | Selects Default or level 10 through 100 in increments of 10 for the player's selected starters. |
 | **Shiny Rate** | Selects 1x, 2x, 4x, 8x, 10x, 20x, or 100x for normal generated player/wild shiny rolls. |
@@ -131,12 +163,17 @@ All sandbox options:
 | **Always Critical Hit** | Marks every non-fixed player damage calculation as critical. |
 | **Always Move First** | Orders player attacks before opponent attacks while retaining normal order within each side. |
 | **No Charge / Recharge Turns** | Resolves player charging moves immediately and suppresses Hyper Beam-style recharge turns. |
+| **Run Never Fails** | Makes normally permitted escape attempts succeed without bypassing encounters or effects that forbid running. |
 | **Full Heal After Every Battle** | Restores the full party's HP, PP, faint/status state, and confusion after a victory. |
 | **Money Multiplier** | Selects Default, 2x, 5x, 10x, or 100x for positive money gains without changing prices. |
 | **EXP Multiplier** | Selects Default, 2x, 4x, 8x, 16x, or 100x for each party member's EXP award. |
 | **Candy Jar Count** | Opens the native scrolling picker to set an exact 0-9,999 starting or live-run Candy Jar stack; the old 99-stack runtime cap is removed. |
 | **Ignore Evolution Requirements** | Makes the first matching formal evolution eligible on the next level-up event, one evolution per EXP award. |
 | **Unlimited TM Compatibility** | Makes the complete TM reward pool teachable to every player Pokemon. |
+
+The General settings include **Shop Animations**. Turning it Off presents the
+completed reward/shop interface immediately where supported; Switch retains its
+guarded presentation path.
 
 ### Sandbox Notes
 
@@ -198,6 +235,11 @@ Release builds can check GitHub for newer SilverShadow releases when the app lau
 - Development builds skip the release update check.
 
 ### Touch-Control Visibility and Layout
+
+The custom SilverShadow touchscreen D-pad supports continuous thumb sliding,
+independent multi-touch ownership, a subtle directional tilt/rocking pose, and
+native vibration on Android. Its silver material and press feedback are shared
+with the action buttons.
 
 Touch Controls defaults to Fade, which hides the overlay after two seconds
 without touch input. Always Appear keeps it visible, and Disabled turns it off.
@@ -291,6 +333,17 @@ still complete, but Google connection reports that it is not configured. See
 types, package IDs, signing SHA-1 requirements, and secret names. The
 network-disabled Nintendo Switch build intentionally omits Drive integration.
 
+Google Drive backup/restore was tested on Android only for 2.0.0. Treat local
+export/import as the primary portable backup until other platforms receive
+equivalent hands-on validation.
+
+Backup and restore are working, but the Google OAuth application is currently
+in Google's **Testing** mode. Only accounts explicitly added to the tester
+allowlist can connect right now, so the released integration currently works
+only for the maintainer's approved account. Public access will be enabled when
+the OAuth application is moved to production. This restriction is at the
+Google sign-in layer; it does not change the local backup format.
+
 ## Build Process
 
 Android builds are produced through GitHub Actions.
@@ -328,12 +381,17 @@ Important directories include:
 
 The patch runner intentionally stops when an expected upstream code anchor cannot be found. This prevents a build from silently producing a partially patched or unpredictable application.
 
-## Nintendo Switch Alpha
+## Nintendo Switch Beta
 
-This repository contains an experimental Nintendo Switch homebrew port built with [nx.js](https://github.com/TooTallNate/nx.js) and Phaser. Android builds are separate and are not affected by the Switch port.
+This repository contains a Nintendo Switch homebrew Beta built with [nx.js](https://github.com/TooTallNate/nx.js) and Phaser. Android builds are separate and are not affected by the Switch port.
 
 > [!WARNING]
-> The Switch build remains **Alpha**. Back up your saves, expect occasional stalls, and do not treat a successful build or a short play session as proof of long-session stability.
+> This second Switch release is now **Beta**, but it can still stall or crash. Back up your saves and do not treat a successful build or a short play session as proof of long-session stability.
+
+Switch optimization and playability testing for this release used the default
+game with all optional gameplay mods disabled. The Daily Run variants, Pokémon
+Editor, and individual sandbox combinations were not hardware-validated on
+Switch. The build can still crash.
 
 ### Confirmed Working on Real Switch Hardware
 
@@ -350,7 +408,6 @@ The following have worked on a Nintendo Switch OLED in handheld, title-override/
 - Save and Quit followed by Continue.
 - BGM playback and looping during tested gameplay.
 - Immediate rewards and targeted reward flows such as Rare Candy and PP Up returning to an interactive reward screen.
-- SilverShadow offline settings and cheats during tested sessions.
 - Front-end assets, sprites, animations, fonts, locales, audio, and game data loaded directly from four uncompressed random-access packs without extracting thousands of SD-card files.
 
 These are hardware observations, not guarantees for every console, firmware, controller arrangement, game mode, move, Pokémon form, or length of play session.
@@ -403,13 +460,23 @@ Normal gameplay has been smooth enough in the sessions tested so far, but many c
 
 Extreme reward-cheat use can exhaust native memory. In particular, repeatedly using infinite/free rerolls or generating and claiming many reward sets without leaving the reward phase can eventually block further rerolls, cause severe slowdown, or crash the homebrew process. The build includes a memory guard to stop rerolls before the most dangerous point, but it cannot make unlimited stress use safe. Save, fully close, and relaunch if memory pressure develops.
 
-Other Alpha limitations include:
+Other Beta limitations include:
 
 - Occasional loading stalls or native crashes may still occur.
 - Some move effects may still show a missing-texture placeholder or another visual irregularity.
 - PLUS behavior, suspend/resume, docked mode, detached controllers, controller reconnection, and long-session audio lifecycle have not been exhaustively tested.
 - Some on-screen button prompts may still use keyboard or Xbox-style artwork.
 - Real hardware behavior can vary with firmware, Atmosphère, hbmenu, SD-card speed, filesystem, and controller configuration.
+
+### Boss Rush shop issue
+
+Boss Rush shops intentionally rotate useful items that are not normally sold.
+Some unusual purchases may not function or present their follow-up screens
+correctly. In particular, Rare Candy can be purchased and targeted quickly,
+then produce a series of individual level-up messages and incorrect
+intermediate stat screens after leaving the shop. Please open an issue with the
+mode, wave, item, and reproduction steps when another purchase behaves
+incorrectly.
 
 ### Updating and Troubleshooting
 
@@ -428,7 +495,7 @@ Detailed Switch information is available in:
 - [`docs/SWITCH_PORT.md`](docs/SWITCH_PORT.md)
 - [`docs/SWITCH_NXJS_COMPATIBILITY.md`](docs/SWITCH_NXJS_COMPATIBILITY.md)
 - [`docs/SWITCH_INSTALL.md`](docs/SWITCH_INSTALL.md)
-- [`docs/SWITCH_ALPHA_STATUS.md`](docs/SWITCH_ALPHA_STATUS.md)
+- [`docs/SWITCH_BETA_STATUS.md`](docs/SWITCH_BETA_STATUS.md)
 
 ## Updating From Upstream
 
@@ -447,8 +514,16 @@ SilverShadow PokéRogue Offline builds on the work of:
 
 - [PokéRogue](https://github.com/pagefaultgames/pokerogue)
 - [PokéRogue Offline](https://github.com/PokeRogue-Offline/pokerogue-offline), including Scooom and its contributors, which is the base of this fork
+- Scooom for the Google Drive integration and the Daily Seed concept; this fork
+  uses its own Daily Run implementation and in-game mode presentation
+- Futuba for the concept behind several optional sandbox modifiers; the
+  SilverShadow versions were independently adapted to the current source
 - [nx.js](https://github.com/TooTallNate/nx.js) by Nathan Rajlich and its contributors, which provides the Nintendo Switch JavaScript runtime and NRO tooling
 - [Phaser](https://github.com/phaserjs/phaser), used by PokéRogue for rendering and game systems
+- BOIS CLUB GAMES / [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)
+  for the touch-control behavior reference
+- Nicolae Berbece / [Those Awesome Guys](https://thoseawesomeguys.com/prompts/)
+  for the CC0 controller-prompt artwork used by the D-pad visual system
 - The developers, artists, translators, testers, and community contributors behind these projects
 
 PokéRogue source is distributed under the GNU Affero General Public License v3.0. nx.js is distributed under the MIT License. The Switch package includes the applicable license texts and third-party notices. Corresponding source for SilverShadow release builds is available in this repository and its release tag.

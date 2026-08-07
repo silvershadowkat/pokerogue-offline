@@ -172,7 +172,8 @@ export async function signIn(): Promise<string> {
       provider: "google",
       options: { scopes: ["https://www.googleapis.com/auth/drive.appdata"] },
     });
-    const token = res?.result?.accessToken?.token;
+    const result = res?.result;
+    const token = result && "accessToken" in result ? result.accessToken?.token : undefined;
     if (!token) {
       throw new Error("Google sign-in did not return an access token.");
     }
@@ -336,15 +337,15 @@ export async function restoreFromBackup(): Promise<void> {
 }
 
 /**
- * Downloads the existing Drive backup (if any) purely to read the embedded
- * save's last-played time — doesn't write anything to localStorage. Used by
- * the "Drive Last Played" row, which shows the backup's save time rather
- * than the local one, and only ever once actually connected.
+ * Downloads the existing Drive backup (if any) and displays the instant at
+ * which that backup was created in the device's local timezone. This uses
+ * the backup envelope's `backedUpAt` value, not the older timestamp embedded
+ * inside the saved game data.
  *
  * Returns null if there's no backup yet, rather than throwing, since "no
  * backup exists" is an expected, displayable state, not an error.
  */
-export async function getRemoteLastPlayed(): Promise<string | null> {
+export async function getRemoteBackupTime(): Promise<string | null> {
   if (!cachedAccessToken) {
     throw new Error("Not signed in — call signIn() first.");
   }
@@ -363,18 +364,10 @@ export async function getRemoteLastPlayed(): Promise<string | null> {
   }
 
   const parsed = await res.json();
-  const data: Record<string, string> = parsed?.data ?? {};
-  const rawSystemData = data["data_Guest"];
-  if (!rawSystemData) {
+  if (typeof parsed?.backedUpAt !== "string") {
     return null;
   }
 
-  try {
-    const json = decodeURIComponent(atob(rawSystemData));
-    const saveData = JSON.parse(json);
-    return saveData?.timestamp ? new Date(saveData.timestamp).toLocaleString() : null;
-  } catch (err) {
-    console.error("google-drive-backup: failed to parse embedded save data from backup", err);
-    return null;
-  }
+  const backupTime = new Date(parsed.backedUpAt);
+  return Number.isNaN(backupTime.getTime()) ? null : backupTime.toLocaleString();
 }

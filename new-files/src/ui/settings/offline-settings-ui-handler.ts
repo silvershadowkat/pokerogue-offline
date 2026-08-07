@@ -17,7 +17,7 @@ import * as offlineBackup from "#system/offline/google-drive-backup";
  *   - Backup Save                    \
  *   - Restore Backup                  } locked until connected
  *   - Include Current Run (Off/On)   /
- *   - Drive Last Played (read-only, populates once connected — not
+ *   - Drive Last Backup (read-only, populates once connected — not
  *     itself "locked", just shows a placeholder until there's something
  *     to show)
  *   - Clear All Data (always interactive — wiping local data has nothing
@@ -142,20 +142,20 @@ export class OfflineSettingsUiHandler extends BaseSettingsUiHandler {
     this.applyLockedStyling();
   }
 
-  /** Fetches and displays the Drive backup's embedded save time — only meaningful once connected. */
-  private refreshDriveLastPlayed(): void {
+  /** Fetches and displays the backup creation time in the device's local timezone. */
+  private refreshDriveLastBackup(): void {
     if (!offlineBackup.isSupported() || !offlineBackup.isSignedIn()) {
       this.setRowText(SettingKeys.Offline_Drive_Last_Played, "—");
       return;
     }
     this.setRowText(SettingKeys.Offline_Drive_Last_Played, "Checking…");
     offlineBackup
-      .getRemoteLastPlayed()
-      .then(lastPlayed => {
-        this.setRowText(SettingKeys.Offline_Drive_Last_Played, lastPlayed ?? "No backup found");
+      .getRemoteBackupTime()
+      .then(lastBackup => {
+        this.setRowText(SettingKeys.Offline_Drive_Last_Played, lastBackup ?? "No backup found");
       })
       .catch(err => {
-        console.error("Failed to fetch Drive last-played time:", err);
+        console.error("Failed to fetch Drive backup time:", err);
         this.setRowText(SettingKeys.Offline_Drive_Last_Played, "—");
       });
   }
@@ -167,7 +167,7 @@ export class OfflineSettingsUiHandler extends BaseSettingsUiHandler {
     this.setRowText(SettingKeys.Offline_Restore_Backup, "Restore");
 
     this.refreshDisplay();
-    this.refreshDriveLastPlayed();
+    this.refreshDriveLastBackup();
 
     // Attempt a silent reconnect if we're not already signed in this
     // session. On Electron this is fast and popup-free when a stored
@@ -180,7 +180,7 @@ export class OfflineSettingsUiHandler extends BaseSettingsUiHandler {
         .tryRestoreSession()
         .then(() => {
           this.refreshDisplay();
-          this.refreshDriveLastPlayed();
+          this.refreshDriveLastBackup();
         })
         .catch(err => {
           console.warn("Silent session restore failed:", err);
@@ -234,7 +234,7 @@ export class OfflineSettingsUiHandler extends BaseSettingsUiHandler {
       .signIn()
       .then(() => {
         this.refreshDisplay();
-        this.refreshDriveLastPlayed();
+        this.refreshDriveLastBackup();
       })
       .catch(err => {
         console.error("Google sign-in failed:", err);
@@ -263,7 +263,7 @@ export class OfflineSettingsUiHandler extends BaseSettingsUiHandler {
       .then(() => {
         this.setRowText(SettingKeys.Offline_Backup_Save, "Google Drive");
         this.showText("Backup complete.", 0, () => this.showText("", 0), 1500);
-        this.refreshDriveLastPlayed();
+        this.refreshDriveLastBackup();
       })
       .catch(err => {
         console.error("Backup failed:", err);

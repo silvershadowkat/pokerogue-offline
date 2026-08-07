@@ -3,8 +3,9 @@
 ## Status
 
 The indexed asset-pack layout and ranged-read compatibility fix have launched
-on the tested Nintendo Switch OLED. The public 2.0.0 package remains Alpha and
-needs broader long-session and hardware-configuration testing.
+on the tested Nintendo Switch OLED. The public 2.0.0 package is the second
+Switch release and is labeled Beta, but still needs broader long-session and
+hardware-configuration testing.
 
 ## Measured input
 

@@ -350,14 +350,27 @@ if (!optionSelectSource.includes("const pageStepTarget")) {
                 this.config.pageStepMaxIndex ?? this.unskippedIndices.length - 1,
               ),
             );`,
-    `            const minimum = this.config.pageStepMinIndex ?? 0;
-            const maximum = this.config.pageStepMaxIndex ?? this.unskippedIndices.length - 1;
+    `            const lastSelectableCursor = Math.max(0, this.unskippedIndices.length - 1);
+            const minimum = Phaser.Math.Clamp(this.config.pageStepMinIndex ?? 0, 0, lastSelectableCursor);
+            const maximum = Phaser.Math.Clamp(
+              this.config.pageStepMaxIndex ?? lastSelectableCursor,
+              minimum,
+              lastSelectableCursor,
+            );
             const pageStepTarget =
               direction < 0 && this.fullCursor < minimum
                 ? this.fullCursor
                 : Phaser.Math.Clamp(this.fullCursor + direction * this.config.pageStep, minimum, maximum);
             success = this.setCursor(pageStepTarget);`,
     "the bounded native option picker page target",
+  );
+}
+if (!optionSelectSource.includes("this.config.options.length <= this.config.maxOptions")) {
+  optionSelectSource = replaceRequired(
+    optionSelectSource,
+    `    if (!this.config.maxOptions || this.config.options.length < this.config.maxOptions) {`,
+    `    if (!this.config.maxOptions || this.config.options.length <= this.config.maxOptions) {`,
+    "the exact-capacity option picker viewport",
   );
 }
 if (!optionSelectSource.includes("const targetOptionIndex = this.unskippedIndices[fullCursor]")) {
@@ -430,6 +443,18 @@ if (!optionSelectSource.includes("const targetOptionIndex = this.unskippedIndice
     incrementalViewport,
     deterministicViewport,
     "the option picker scrolling cursor viewport",
+  );
+}
+if (!optionSelectSource.includes("const lastSelectableCursor = Math.max(0, this.unskippedIndices.length - 1);\n    fullCursor")) {
+  optionSelectSource = replaceRequired(
+    optionSelectSource,
+    `  public override setCursor(fullCursor: number): boolean {
+    const changed = this.fullCursor !== fullCursor;`,
+    `  public override setCursor(fullCursor: number): boolean {
+    const lastSelectableCursor = Math.max(0, this.unskippedIndices.length - 1);
+    fullCursor = Phaser.Math.Clamp(Number.isFinite(fullCursor) ? Math.trunc(fullCursor) : 0, 0, lastSelectableCursor);
+    const changed = this.fullCursor !== fullCursor;`,
+    "the option picker cursor bounds",
   );
 }
 writeFile(optionSelectPath, optionSelectSource);

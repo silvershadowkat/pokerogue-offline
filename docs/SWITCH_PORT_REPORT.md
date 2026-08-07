@@ -1,16 +1,17 @@
-# Nintendo Switch Milestone 2 and Alpha handoff report
+# Nintendo Switch Milestone 2 and Beta handoff report
 
 ## Summary
 
 Milestone 2 replaces the small release payload with the real
 SilverShadow-patched PokéRogue web build while retaining the hardware-proven
 nx.js bootstrap and diagnostics. The result is a hardware-testable, offline,
-SD-card-oriented package. Hardware testing on 2026-07-29 advanced the port to
-Alpha: it now reaches battles, catches Pokémon, persists Pokédex/session data,
-and resumes a run. It is not claimed stable.
+SD-card-oriented package. The first release established a playable
+real-hardware baseline; version 2.0.0 is the second Switch release and promotes
+the port to Beta. It reaches battles, catches Pokémon, persists
+Pokédex/session data, and resumes a run. It is not claimed stable.
 
 The detailed hardware record is maintained in
-[`SWITCH_ALPHA_STATUS.md`](SWITCH_ALPHA_STATUS.md).
+[`SWITCH_BETA_STATUS.md`](SWITCH_BETA_STATUS.md).
 
 ## Selected source
 
@@ -38,7 +39,7 @@ The branch history intentionally preserves the major implementation stages:
    XHR asset loading, audio-listener startup, UI state, framebuffer scaling,
    text metrics, Nintendo controls, Plus interception, and bitmap-font XML.
 
-The complete blocker-to-commit table is in `SWITCH_ALPHA_STATUS.md`.
+The complete blocker-to-commit table is in `SWITCH_BETA_STATUS.md`.
 
 ## Build artifacts
 
@@ -173,7 +174,7 @@ Still requires real Switch hardware:
 
 ## Known blockers and risks
 
-The established Alpha defects are:
+The established Beta defects are:
 
 - silent music and sound effects;
 - Phaser `__MISSING` textures in move animations despite local PNG requests;
@@ -186,7 +187,7 @@ The established Alpha defects are:
   software-keyboard paths.
 
 The next branch should add memory and Phaser loader diagnostics before changing
-input or renderer behavior. See `SWITCH_ALPHA_STATUS.md` for the ordered path
+input or renderer behavior. See `SWITCH_BETA_STATUS.md` for the ordered path
 forward.
 
 The local Codex Windows sandbox cannot create the normal `%LOCALAPPDATA%`

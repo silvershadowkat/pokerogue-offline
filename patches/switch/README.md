@@ -3,7 +3,7 @@
 Switch-specific PokéRogue source patches belong here. Prefer `node/` scripts for
 targeted, assertion-backed transformations and `patch/` for stable source diffs.
 
-The Alpha baseline still applies one narrow PokéRogue source patch:
+The Beta baseline still applies one narrow PokéRogue source patch:
 
 - `nxjs-bootstrap.js` supplies Phaser with the physical nx.js `screen` canvas,
   enables Phaser's custom-environment path, injects the Switch build label, and
@@ -17,5 +17,5 @@ the hardware-driven WebGL2, DOM, font, XHR, controller, framebuffer, and
 bitmap-font compatibility shims.
 
 Add further source patches only after a hardware log identifies a specific
-compatibility blocker. See `docs/SWITCH_ALPHA_STATUS.md` for the tested Alpha
+compatibility blocker. See `docs/SWITCH_BETA_STATUS.md` for the tested Beta
 baseline, known bugs, and the next diagnostic order.

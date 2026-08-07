@@ -12,6 +12,16 @@ the Google Drive rows remain present on supported platforms, but Connect
 reports that OAuth is not configured. Nintendo Switch continues to omit the
 Drive rows because that build enforces a no-network runtime policy.
 
+The 2.0.0 Drive flow was manually tested on Android only. Android, iOS,
+Windows, macOS, and Linux share the backup format, but the non-Android native
+sign-in paths require additional hands-on release testing.
+
+Backup and restore are functional, but the current Google OAuth application is
+in **Testing** mode. Google permits only explicitly allowlisted test accounts
+to authenticate in that state, so the release currently works only for the
+maintainer's approved account. Move the OAuth application to production before
+announcing public Drive access; no backup-format change is required.
+
 ## 1. Create the Google Cloud project
 
 1. Open the [Google Cloud Console](https://console.cloud.google.com/).
@@ -113,8 +123,8 @@ history.
 
 1. Build the desired platform from this branch.
 2. Open **Settings → Offline → Connect Google Account**.
-3. Back up with **Include Current Run** Off and confirm **Drive Last Played**
-   updates.
+3. Back up with **Include Current Run** Off and confirm **Drive Last Backup**
+   updates to the device's current local time.
 4. Export the local save manually as a separate safety copy.
 5. Change a harmless local setting, restore the Drive backup, and press Confirm
    again when prompted to reload.

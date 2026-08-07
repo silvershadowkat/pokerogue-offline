@@ -1,9 +1,9 @@
-# Switch Alpha installation and hardware test
+# Switch Beta installation and hardware test
 
-The Switch Alpha reached gameplay on a tested Switch OLED. The indexed
+The first Switch release reached gameplay on a tested Switch OLED. The indexed
 asset-pack layout and ranged-read compatibility fix have also launched on that
-hardware. Version 2.0.0 packages the same tested runtime path for public Alpha
-testing; it is not a stable or comprehensively stress-tested release.
+hardware. Version 2.0.0 is the second Switch release and promotes that tested
+runtime path to public Beta; it is not stable or comprehensively stress-tested.
 
 ## Requirements
 
@@ -53,7 +53,7 @@ external beside it and are read lazily from uncompressed indexed packs.
 ## Test procedure
 
 1. Fresh-launch in title-override/application-memory mode with Wi-Fi disabled.
-2. Allow at least 60 seconds for the initial loading period. The Alpha
+2. Allow at least 60 seconds for the initial loading period. The Beta
    baseline has taken approximately 35-44 seconds to show its first asset.
    Returning to the main menu performs a similar refresh and can look frozen
    for roughly 40 seconds again.
@@ -79,7 +79,7 @@ external beside it and are read lazily from uncompressed indexed packs.
     identifies an invalid support-pack header. Restore the known-good pack.
 16. Return the complete newest `logs/milestone2-*.log`.
 
-## Alpha stability notes
+## Beta stability notes
 
 - Normal gameplay has been smooth enough in the sessions tested, but many
   consecutive battles and long sessions have not been thoroughly stressed.

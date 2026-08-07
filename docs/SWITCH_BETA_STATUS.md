@@ -1,13 +1,13 @@
-# Nintendo Switch Alpha status
+# Nintendo Switch Beta status
 
 ## Baseline
 
-The Nintendo Switch port entered **Alpha** on 2026-07-29. This means the real
-SilverShadow PokéRogue Offline game can boot and reach sustained gameplay on
-real hardware, but important compatibility defects remain. It is not a stable
-release and should not be distributed as a finished port.
+The first Nintendo Switch release established a playable real-hardware
+baseline. SilverShadow 2.0.0 is the second Switch release and promotes the port
+to **Beta**. Important compatibility defects remain, so Beta does not mean the
+port is crash-free or comprehensively tested.
 
-The Alpha baseline uses:
+The Beta baseline uses:
 
 - SilverShadow PokéRogue Offline `1.12.0.10`;
 - upstream PokéRogue commit
@@ -16,13 +16,13 @@ The Alpha baseline uses:
 - `@nx.js/runtime@1.0.0-beta.6`;
 - `@nx.js/nro@1.0.0-beta.6`;
 - the fat/self-contained NRO plus external SD-card game payload;
-- Switch implementation commit `77ba54b` before the Alpha documentation
+- Switch implementation commit `77ba54b` before the initial documentation
   handoff.
 
 The internal manifest value `milestone2-real-game`, `milestone2-*.log` names,
 and Milestone 2 artifact filenames are intentionally retained. They identify
 the package/schema generation and should not be renamed merely because the
-project maturity is now Alpha.
+project maturity is now Beta.
 
 ## Hardware test environment
 
@@ -32,6 +32,10 @@ Atmosphère, Hekate, hbmenu, Wi-Fi, and SD-card filesystem details were not
 recorded in the returned evidence and remain unknown.
 
 Every hardware statement below is limited to that tested configuration.
+
+The 2.0.0 optimization and playability passes used the default game with all
+optional gameplay mods disabled. The new Daily Run modes, Pokémon Editor, and
+individual sandbox combinations were not part of Switch release validation.
 
 ## Hardware-verified behavior
 
@@ -66,9 +70,6 @@ The following behavior was observed on the real Switch:
   hardware-observed exclusive ranged-read end behavior.
 - The `item-count` bitmap font no longer blocks session continuation after the
   5x Poké Ball reward path.
-- The tester enabled the existing custom cheat/sandbox options and reported
-  that they worked after the game completed a long in-process reload. A
-  per-option verification matrix was not recorded.
 - Timestamped logs are created for each launch, so old logs do not need to be
   deleted.
 
@@ -103,7 +104,7 @@ routing, schema/checksum validation, an atomic SD-card localStorage document
 with backup recovery, build verification, and a changed-files-only hardware
 iteration workflow.
 
-## Known Alpha bugs
+## Known Beta bugs
 
 ### Native crash with inconclusive trigger
 
@@ -230,7 +231,7 @@ gameplay and should be distinguished from fatal errors.
 
 ## Path forward
 
-Continue from a new branch based on the merged Alpha baseline. Keep fixes
+Continue from a new branch based on the merged Beta baseline. Keep fixes
 small and driven by the first reproducible failure.
 
 Recommended order:

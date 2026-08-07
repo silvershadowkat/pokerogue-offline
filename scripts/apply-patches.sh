@@ -50,6 +50,8 @@ apply_patch "community-menu.js"             all
 
 apply_patch "update-available-screen.js" all
 apply_patch "shop-animations.js"         all
+apply_patch "boss-rush.js"               all
+apply_patch "random-run.js"              all
 # --- Mobile (iOS + Android) ---------------------------------------------------
 if [[ "$PLATFORM" == "mobile" || "$PLATFORM" == "android" ]]; then
 

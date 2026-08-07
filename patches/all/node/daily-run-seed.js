@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-/** Install the SilverShadow four-mode Daily Run system into the pinned game source. */
+/** Install the SilverShadow Daily Run mode system into the pinned game source. */
 
 const fs = require("fs");
 const path = require("path");
@@ -45,7 +45,9 @@ for (const name of [
   "daily-run-seed-utils.ts",
   "daily-run-archive.ts",
   "daily-run-history.ts",
+  "seeded-run-compatibility.ts",
   "daily-run-keyboard-model.ts",
+  "offline-daily-date.ts",
   "daily-run-menu.ts",
 ]) {
   copyShared(path.join("src", "system", "daily-run", name));
@@ -473,23 +475,113 @@ if (!saveSlot.includes("getDailyRunSaveLabels")) {
   write(saveSlotPath, saveSlot);
 }
 
+const gameOverPath = path.join(gameRoot, "src", "phases", "game-over-phase.ts");
+let gameOver = read(gameOverPath);
+if (!gameOver.includes("getCurrentDailyRunMetadata")) {
+  gameOver = replaceRequired(
+    gameOver,
+    'import { ArenaData } from "#system/arena-data";',
+    `import { ArenaData } from "#system/arena-data";
+import { getCurrentDailyRunMetadata } from "#system/daily-run/daily-run-types";`,
+    "run history Daily metadata import",
+  );
+  gameOver = replaceRequired(
+    gameOver,
+    `      playerFaints: globalScene.arena.playerFaints,
+    } as SessionSaveData;`,
+    `      playerFaints: globalScene.arena.playerFaints,
+      dailyRunMetadata: getCurrentDailyRunMetadata(),
+    } as SessionSaveData;`,
+    "run history Daily metadata persistence",
+  );
+  write(gameOverPath, gameOver);
+}
+
+const runHistoryPath = path.join(gameRoot, "src", "ui", "handlers", "run-history-ui-handler.ts");
+let runHistory = read(runHistoryPath);
+if (!runHistory.includes("getDailyRunDisplayMetadata")) {
+  runHistory = replaceRequired(
+    runHistory,
+    'import type { PokemonData } from "#system/pokemon-data";',
+    `import type { PokemonData } from "#system/pokemon-data";
+import { getDailyRunDisplayMetadata } from "#system/daily-run/daily-run-types";`,
+    "run history mode metadata import",
+  );
+  runHistory = replaceRequired(
+    runHistory,
+    `      case GameModes.DAILY:
+        mode = i18next.t("gameMode:dailyRun");
+        break;`,
+    `      case GameModes.DAILY:
+        mode = getDailyRunDisplayMetadata(data.dailyRunMetadata).history;
+        break;`,
+    "run history custom Daily name",
+  );
+  write(runHistoryPath, runHistory);
+}
+
+const runInfoPath = path.join(gameRoot, "src", "ui", "handlers", "run-info-ui-handler.ts");
+let runInfo = read(runInfoPath);
+if (!runInfo.includes("getDailyRunDisplayMetadata")) {
+  runInfo = replaceRequired(
+    runInfo,
+    'import type { PokemonData } from "#system/pokemon-data";',
+    `import type { PokemonData } from "#system/pokemon-data";
+import { getDailyRunDisplayMetadata } from "#system/daily-run/daily-run-types";`,
+    "run info mode metadata import",
+  );
+  runInfo = replaceRequired(
+    runInfo,
+    `      case GameModes.DAILY:
+        modeText.appendText(\`\${i18next.t("gameMode:dailyRun")}\`, false);
+        break;`,
+    `      case GameModes.DAILY:
+        modeText.appendText(getDailyRunDisplayMetadata(this.runInfo.dailyRunMetadata).history, false);
+        break;`,
+    "run info custom Daily name",
+  );
+  write(runInfoPath, runInfo);
+}
+
 const localePath = path.join(gameRoot, "locales", "en", "menu.json");
 const locale = JSON.parse(read(localePath));
 Object.assign(locale, {
   shadowDailyOfficial: "Official Daily Run",
   shadowDailyOffline: "Offline Daily Run",
-  shadowDailyRandom: "Random 50-Wave Run",
-  shadowDailyCustom: "Custom 50-Wave Run",
+  shadowDailyRandom: "Random Run",
+  shadowDailyBossRush: "Boss Rush",
+  shadowDailyCustom: "Custom Run",
   shadowDailyOfficialDescription: "Download and browse official seed dates. Uses a cached or built-in archive if download fails.",
   shadowDailyOfflineDescription: "Play today's shared offline run. The same game version and UTC date use the same seed.",
-  shadowDailyRandomDescription: "Generate a new random 50-wave Daily Run. A different seed is created each time.",
+  shadowDailyOfflineMenuHelp: "Choose which calendar date to use for Offline Daily Run.",
+  shadowDailyOfflineToday: "Today",
+  shadowDailyOfflineTodayDescription: "Use today's existing Offline Daily seed.",
+  shadowDailyOfflineYesterday: "Yesterday",
+  shadowDailyOfflineYesterdayDescription: "Use the previous local calendar date.",
+  shadowDailyOfflineChooseDate: "Choose Date...",
+  shadowDailyOfflineChooseDateDescription: "Choose any date from 1900 through today.",
+  shadowDailyOfflineYearHelp: "Choose a year. Left and Right move by ten years.",
+  shadowDailyOfflineMonthHelp: "Choose a month.",
+  shadowDailyOfflineDayHelp: "Choose a day.",
+  shadowDailyRandomDescription: "Choose a seeded Random Run lasting 5, 10, 20, 30, 50, or 100 waves.",
+  shadowDailyBossRushDescription: "Battle 10 powerful bosses with a random team of three level 100 Pokémon.",
   shadowDailyCustomDescription: "Reuse a previous seed or create a repeatable run from memorable text.",
   shadowDailyPreviousSeed: "Previous Seed",
   shadowDailyTextSeed: "Text Seed",
   shadowDailyPreviousDescription: "Replay one of your last 1,000 Daily Run seeds. Newest runs appear first.",
   shadowDailyTextDescription: "Enter any memorable text. The same text will always create the same 50-wave run.",
-  shadowDailyOfflineConfirm: "Start Offline Daily Run for {{date}} (UTC)?",
-  shadowDailyRandomConfirm: "Generate a new random 50-wave Daily Run?",
+  shadowDailyOfflineConfirm: "Start Offline Daily Run for {{date}}?",
+  shadowDailyRandomConfirm: "Generate a new random {{waves}}-wave Daily Run?",
+  shadowDailyRandomVariantHelp: "Choose the total number of waves.",
+  shadowDailyRandomWaveOption: "{{waves}} Waves",
+  shadowDailyRandomWaveDescription: "Play {{waves}} Daily-style waves. The final wave is a one-shield boss.",
+  shadowDailyBossRushConfirm: "Generate a new seeded 10-boss run?",
+  shadowDailyBossRushNormal: "Normal",
+  shadowDailyBossRushHard: "Hard",
+  shadowDailyBossRushHardConfirm: "Generate a new seeded 10-boss Hard run with no between-boss healing?",
+  shadowDailyBossRushVariantHelp: "Choose whether the party is restored between bosses.",
+  shadowDailyBossRushNormalDescription: "Fully restore HP, PP, fainted Pokemon, and major status before each new boss.",
+  shadowDailyBossRushHardDescription: "Carry HP, PP, fainting, and major status into the next boss.",
   shadowDailyGeneratedSeed: "Generated: {{seed}}\nStart this run?",
   shadowDailyLoadingArchive: "Loading the official Daily Run archive...",
   shadowDailySpecialIndicator: "[Special]",
@@ -502,18 +594,23 @@ Object.assign(locale, {
   "shadowDailySourcecached": "cached",
   "shadowDailySourcebuilt-in": "built-in",
   shadowDailyCancelDateHelp: "Return to Daily Run type selection.",
+  shadowDailyCancelHelp: "Return to the previous Daily Run menu.",
+  shadowDailyCancelRootHelp: "Close the Daily Run menu.",
+  shadowDailyCancelPreviousHelp: "Return to the Custom Run menu.",
   shadowDailyError: "Daily Run error",
   shadowDailyUnknownError: "An unknown Daily Run error occurred.",
   shadowDailyInvalidSpecialConfig: "The special Daily Run configuration for {{date}} is invalid.",
   shadowDailyEmptyTextSeed: "Text Seed cannot be empty.",
   shadowDailyPreviousEmpty: "No previous Daily Run seeds have been used yet.",
   shadowDailyPreviousOfficialDetail: "Official Daily Run · {{date}}",
-  shadowDailyPreviousOfflineDetail: "Offline Daily Run · UTC {{date}}",
+  shadowDailyPreviousOfflineDetail: "Offline Daily Run · {{date}}",
   shadowDailyPreviousTextDetail: "Text Seed · {{text}}",
-  shadowDailyPreviousRandomDetail: "Random 50-Wave Run",
+  shadowDailyPreviousRandomDetail: "Random Run",
+  shadowDailyPreviousBossRushDetail: "Boss Rush",
   shadowDailyHistoryModeoffline: "Offline",
   shadowDailyHistoryModeofficial: "Official",
   shadowDailyHistoryModerandom: "Random",
+  "shadowDailyHistoryModeboss-rush": "Boss Rush",
   "shadowDailyHistoryModecustom-text": "Text",
   shadowDailyLaunchFailed: "The Daily Run could not be started. No save was changed.",
   shadowDailyKeyboardEmpty: "(empty)",
@@ -534,4 +631,4 @@ Object.assign(locale, {
 });
 write(localePath, `${JSON.stringify(locale, null, 2)}\n`);
 
-console.log("SilverShadow four-mode Daily Run system applied.");
+console.log("SilverShadow Daily Run mode system applied.");
