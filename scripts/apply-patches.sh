@@ -64,6 +64,8 @@ fi
 if [[ "$PLATFORM" == "android" ]]; then
 
   apply_patch "fix-android-image-paths.js"  android
+  apply_patch "upstream-compatibility.js" android
+  apply_patch "casino-slots.js"             android
 
 fi
 

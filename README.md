@@ -2,6 +2,12 @@
 
 An unofficial PokéRogue Offline fork with SilverShadow Android branding, optional offline sandbox modifiers, quality-of-life improvements, and a Nintendo Switch Beta port.
 
+Android development now uses [local main builds](docs/ANDROID_LOCAL_BUILD.md).
+The Android update pins official game 1.12.0.11 and adds [Casino Slots](docs/ANDROID_CASINO_SLOTS.md)
+inside Egg Gacha. See the [upstream selection audit](docs/ANDROID_UPSTREAM_AUDIT_2026-10-07.md)
+for changes carried forward while preserving local saves and custom Daily modes.
+No automatic cloud sync is added.
+
 > [!IMPORTANT]
 > This is not an official PokéRogue or PokéRogue Offline release. It is a personal fan-made fork intended for offline use.
 

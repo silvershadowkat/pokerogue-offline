@@ -1,0 +1,10 @@
+{
+  "gameVersion": "1.12.0.11",
+  "gameCommit": "e4e9b5383be7c9e171d32a9daaea2658d475c521",
+  "assetsCommit": "909b43612324622608023b3beb2f24f4ef159c1d",
+  "localesCommit": "e46279a0a511e5b6f552dfcab522644822b2908a",
+  "reviewedOfflineCommit": "a8faf35c23c775c941fbde86d490e26a8217683b",
+  "buildNumber": 74,
+  "versionCode": 1200110074,
+  "mainSigningCertificateSha256": "3b84cdecd22d86b200c875e825b12511b799c3d279caadaf7da8eb5e3bc6b730"
+}

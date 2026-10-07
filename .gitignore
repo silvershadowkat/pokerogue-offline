@@ -22,7 +22,7 @@ romfs/
 release/
 
 # ── Capacitor / Android ─────────────────────────────────────────────────────
-android/
+/android/
 *.apk
 *.aab
 *.keystore

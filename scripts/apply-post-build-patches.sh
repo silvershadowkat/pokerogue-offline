@@ -21,6 +21,11 @@ if [[ "$PLATFORM" == "mobile" || "$PLATFORM" == "android" ]]; then
 
 fi
 
+# --- Android only -------------------------------------------------------------
+if [[ "$PLATFORM" == "android" ]]; then
+  apply_patch "android-trigger-axis-fix.js" android
+fi
+
 # --- Switch only --------------------------------------------------------------
 if [[ "$PLATFORM" == "switch" ]]; then
 
