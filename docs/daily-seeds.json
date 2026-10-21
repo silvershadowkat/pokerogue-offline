@@ -1,14 +1,19 @@
 {
     "schemaVersion":  1,
-    "latestDate":  "2026-10-20",
+    "latestDate":  "2026-10-21",
     "earliestDate":  "2026-04-25",
-    "entryCount":  179,
+    "entryCount":  180,
     "source":  {
                    "repository":  "silvershadowkat/pokerogue-offline",
                    "branch":  "seed",
                    "path":  "docs/daily-seeds.json"
                },
     "entries":  [
+                    {
+                        "date":  "2026-10-21",
+                        "format":  "seed",
+                        "seed":  "I4RBw4VusOTSh2ODur8b6Q=="
+                    },
                     {
                         "date":  "2026-10-20",
                         "format":  "seed",
